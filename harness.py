@@ -50,20 +50,29 @@ import itertools, random
 
 CARDS_IN_SUIT = 13
 SUITS_IN_DECK = 4
+CLUBS = 0
+DIAMONDS = 1
+SPADES = 2
+HEARTS = 3
 
 DECK = [i for i in range(SUITS_IN_DECK*CARDS_IN_SUIT)]
 
 NM_VALUES = ['2','3','4','5','6','7','8','9','X','J','Q','K','A']
 NM_SUITS = ['C','D','S','H']
 
+def decode(i): return i%CARDS_IN_SUIT,i//CARDS_IN_SUIT
+
 def serialize(i):
     if type(i) is list:
         return list(map(lambda x:serialize(x),i))
-    c,s = i%CARDS_IN_SUIT,i//CARDS_IN_SUIT
+    c,s = decode(i)
     return NM_VALUES[c]+NM_SUITS[s]
 
 def deserialize(nm):
     return NM_SUITS.index(nm[1])*SUITS_IN_DECK+NM_VALUES.index(nm[0])
+
+CARD_2C = deserialize('2C')
+CARD_QS = deserialize('QS')
 
 class Player():
     def __init__(self,id):
@@ -87,6 +96,7 @@ class Player():
         return ret
 
     def play_turn(self,round,playable):
+        print(self.id,'play_turn:',serialize(playable))
         # TODO Determine best card to play
         ret = random.choice(playable)
         self.cards.remove(ret)
@@ -103,16 +113,19 @@ deck = DECK.copy()
 random.shuffle(deck)
 print('deck:',serialize(deck))
 
-locations = [None for i in range(len(DECK))]
+distribution = [None for i in range(len(DECK))]
 
-def player_cards(p):
-    return list(filter(lambda x:x is not None,[i if l==p else None for i,l in enumerate(locations)]))
+def player_cards(p,suit=None):
+    cards = list(filter(lambda x: x is not None, [i if l == p else None for i, l in enumerate(distribution)]))
+    if suit is not None:
+        cards = list(filter(lambda x:suit*CARDS_IN_SUIT <= x < (suit+1)*CARDS_IN_SUIT,cards))
+    return cards
 
 for i,player in enumerate(players):
     cards = deck[i*NUM_CARDS:(i+1)*NUM_CARDS]
     player.deal(cards)
     for card in cards:
-        locations[card] = i
+        distribution[card] = i
 
 if direction != 3:
     passed_cards = []
@@ -120,7 +133,7 @@ if direction != 3:
         cards = player.pass_cards(direction)
         passed_cards.append(cards)
         for card in cards:
-            locations[card] = None
+            distribution[card] = None
 
     adj = -1 if direction == 0 else 1 if direction == 1 else 2
     for i, player in enumerate(players):
@@ -128,22 +141,50 @@ if direction != 3:
         cards = passed_cards[j]
         player.deal(cards)
         for card in cards:
-            locations[card] = i
+            distribution[card] = i
 
-print('locations:',locations)
+print('distribution:',distribution)
 for i in range(NUM_PLAYERS):
-    cards = player_cards(i)
-    print(i,len(cards),serialize(cards))
+    for s in range(SUITS_IN_DECK):
+        cards = player_cards(i,s)
+        print(i,s,len(cards),serialize(cards))
 
 # Determine which player has the 2 of clubs
-lead = locations[deserialize('2C')]
+lead = distribution[CARD_2C]
 for i in range(NUM_CARDS):
     print('lead:', lead)
+    lead_s = None
     played_cards = []
     for j in range(NUM_PLAYERS):
-        p = (lead+j)%4
+        p = (j+lead)%4
         player = players[p]
-        playable = player_cards(p)
+        if i==0 and j==0:
+            playable = [CARD_2C]
+        else:
+            playable = player_cards(p,lead_s)
+            if not playable:
+                playable = player_cards(p)
+            if i==0:
+                # On first hand remove queen of spades and all hearts
+                playable = list(filter(lambda x:(x!=CARD_QS and not HEARTS*CARDS_IN_SUIT <= x < (HEARTS+1)*CARDS_IN_SUIT),playable))
         card = player.play_turn(played_cards,playable)
-        locations[card] = None
+        if j==0:
+            _,lead_s = decode(card)
+        distribution[card] = None
         played_cards.append(card)
+    print('played_cards:',serialize(played_cards))
+    # Determine the winner of the hand
+    max_c = None
+    max_p = None
+    for j, played_card in enumerate(played_cards):
+        c,s = decode(played_card)
+        p = (j+lead)%4
+        if j==0:
+            lead_s = s
+            max_c = c
+            max_p = p
+        if s==lead_s:
+            if c>max_c:
+                max_c = c
+                max_p = p
+    lead = max_p
