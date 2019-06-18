@@ -31,8 +31,6 @@ class Player():
         self.cards.remove(ret)
         return ret
 
-    def add_points(self,points):
-        print(self.id,'add_points:',points)
-        self.points += points
-        print(self.id,'points:',self.points)
-
+    def played_hand(self,cards,points):
+        #print(self.id,'played_hand:',serialize(cards),points)
+        pass

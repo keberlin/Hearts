@@ -51,101 +51,121 @@ from card import *
 from distribution import *
 from player import *
 
+def shift(a,i):
+    i %= len(a)
+    return a[i:]+a[:i]
+
 NUM_PLAYERS = 4
 NUM_CARDS = len(DECK)//NUM_PLAYERS
 
 players = [Player(i) for i in range(NUM_PLAYERS)]
+player_points = [0 for i in range(NUM_PLAYERS)]
 
 direction = 0
 
-deck = DECK.copy()
-random.shuffle(deck)
-print('deck:',serialize(deck))
+play = True
 
-distribution = Distribution()
+while (play):
 
-for i,player in enumerate(players):
-    cards = deck[i*NUM_CARDS:(i+1)*NUM_CARDS]
-    player.deal(cards)
-    for card in cards:
-        distribution[card] = i
+    deck = DECK.copy()
+    random.shuffle(deck)
+    print('deck:',serialize(deck))
 
-if direction != 3:
-    passed_cards = []
-    for i, player in enumerate(players):
-        cards = player.pass_cards(direction)
-        passed_cards.append(cards)
-        for card in cards:
-            distribution[card] = None
+    distribution = Distribution()
 
-    adj = -1 if direction == 0 else 1 if direction == 1 else 2
-    for i, player in enumerate(players):
-        j = (i + adj) % 4
-        cards = passed_cards[j]
+    for i,player in enumerate(players):
+        cards = deck[i*NUM_CARDS:(i+1)*NUM_CARDS]
         player.deal(cards)
         for card in cards:
             distribution[card] = i
 
-for i in range(NUM_PLAYERS):
-    for s in range(SUITS_IN_DECK):
-        cards = distribution.player_cards(i,s)
-        print(i,s,len(cards),serialize(cards))
+    if direction != 3:
+        passed_cards = []
+        for i, player in enumerate(players):
+            cards = player.pass_cards(direction)
+            passed_cards.append(cards)
+            for card in cards:
+                distribution[card] = None
 
-# Determine which player has the 2 of clubs
-lead = distribution[CARD_2C]
-hearts_broken = False
-for i in range(NUM_CARDS):
-    print('lead:', lead)
-    lead_s = None
-    played_cards = []
-    for j in range(NUM_PLAYERS):
-        p = (j+lead)%4
-        player = players[p]
-        if i==0 and j==0:
-            # On first card can only play the 2 of clubs
-            playable = [CARD_2C]
-        else:
-            # See if player has any cards in the lead suit
-            playable = distribution.player_cards(p,lead_s)
-            if not playable:
-                # If not then include all player's cards
-                playable = distribution.player_cards(p)
-            if i==0:
-                # On first hand remove queen of spades and all hearts
-                playable = list(filter(lambda x:(x!=CARD_QS),playable))
-            if i==0 or (j==0 and not hearts_broken):
-                # On first hand or if lead player and hearts not broken remove all hearts
-                playable = list(filter(lambda x: (not in_suit(x, HEARTS)), playable))
-            # If we end up with no playable cards then bring back the hearts
-            if not playable:
-                playable = distribution.player_cards(p, HEARTS)
-        card = player.play_turn(played_cards,playable)
-        if card not in playable:
-            print('ERROR: card %s played from %s'%(deserialize(card),deserialize(playable)))
-        if j==0:
-            _,lead_s = decode(card)
-        if not hearts_broken and in_suit(card,HEARTS):
-            print('hearts broken')
-            hearts_broken = True
-        distribution[card] = None
-        played_cards.append(card)
-    print('played_cards:',serialize(played_cards))
-    # Determine the winner of the hand
-    max_c = None
-    max_p = None
-    for j, played_card in enumerate(played_cards):
-        c,s = decode(played_card)
-        p = (j+lead)%4
-        if j==0:
-            lead_s = s
-            max_c = c
-            max_p = p
-        if s==lead_s:
-            if c>max_c:
+        adj = -1 if direction == 0 else 1 if direction == 1 else 2
+        for i, player in enumerate(players):
+            j = (i + adj) % 4
+            cards = passed_cards[j]
+            player.deal(cards)
+            for card in cards:
+                distribution[card] = i
+
+    for i in range(NUM_PLAYERS):
+        for s in range(SUITS_IN_DECK):
+            cards = distribution.player_cards(i,s)
+            #print(i,s,len(cards),serialize(cards))
+
+    # Determine which player has the 2 of clubs
+    lead = distribution[CARD_2C]
+    hearts_broken = False
+    for i in range(NUM_CARDS):
+        print('lead:', lead)
+        lead_s = None
+        played_cards = []
+        for j in range(NUM_PLAYERS):
+            p = (j+lead)%4
+            player = players[p]
+            if i==0 and j==0:
+                # On first card can only play the 2 of clubs
+                playable = [CARD_2C]
+            else:
+                # See if player has any cards in the lead suit
+                playable = distribution.player_cards(p,lead_s)
+                if not playable:
+                    # If not then include all player's cards
+                    playable = distribution.player_cards(p)
+                if i==0:
+                    # On first hand remove queen of spades and all hearts
+                    playable = list(filter(lambda x:(x!=CARD_QS),playable))
+                if i==0 or (j==0 and not hearts_broken):
+                    # On first hand or if lead player and hearts not broken remove all hearts
+                    playable = list(filter(lambda x: (not in_suit(x, HEARTS)), playable))
+                # If we end up with no playable cards then bring back the hearts
+                if not playable:
+                    playable = distribution.player_cards(p, HEARTS)
+            card = player.play_turn(played_cards,playable)
+            if card not in playable:
+                print('ERROR: card %s played from %s'%(deserialize(card),deserialize(playable)))
+            if j==0:
+                _,lead_s = decode(card)
+            if not hearts_broken and in_suit(card,HEARTS):
+                print('hearts broken')
+                hearts_broken = True
+            distribution[card] = None
+            played_cards.append(card)
+        print('played_cards:',serialize(played_cards))
+
+        # Determine the winner of the hand
+        max_c = None
+        max_p = None
+        for j, played_card in enumerate(played_cards):
+            c,s = decode(played_card)
+            p = (j+lead)%4
+            if j==0:
+                lead_s = s
                 max_c = c
                 max_p = p
-    # Calculate points for this hand
-    points = len(list(filter(lambda x:in_suit(x,HEARTS),played_cards)))
-    if CARD_QS in played_cards: points += 13
-    if points: players[max_p].add_points(points)
-    lead = max_p
+            if s==lead_s:
+                if c>max_c:
+                    max_c = c
+                    max_p = p
+
+        # Calculate points for this hand
+        points = len(list(filter(lambda x:in_suit(x,HEARTS),played_cards)))
+        if CARD_QS in played_cards: points += 13
+        if points: player_points[max_p] += points
+        lead = max_p
+
+        for j,player in enumerate(players):
+            player.played_hand(shift(played_cards,j+1+lead),shift(player_points,j+1+lead))
+
+        direction = (direction+1)%4
+
+        play = not list(filter(lambda x:x>=100,player_points))
+
+print('end of game:',player_points)
