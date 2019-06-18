@@ -58,18 +58,22 @@ def shift(a,i):
 NUM_PLAYERS = 4
 NUM_CARDS = len(DECK)//NUM_PLAYERS
 
-players = [Player(i) for i in range(NUM_PLAYERS)]
+players = [RandomPlayer(i) for i in range(3)] + [AIPlayer()]
 player_points = [0 for i in range(NUM_PLAYERS)]
 
 direction = 0
+
+round = 1
 
 play = True
 
 while (play):
 
+    print('round:',round)
+
     deck = DECK.copy()
     random.shuffle(deck)
-    print('deck:',serialize(deck))
+    #print('deck:',serialize(deck))
 
     distribution = Distribution()
 
@@ -78,6 +82,8 @@ while (play):
         player.deal(cards)
         for card in cards:
             distribution[card] = i
+    for i,player in enumerate(players):
+        print('player',i,'cards:',serialize(player.cards))
 
     if direction != 3:
         passed_cards = []
@@ -100,22 +106,24 @@ while (play):
             cards = distribution.player_cards(i,s)
             #print(i,s,len(cards),serialize(cards))
 
+    hand_points = [0 for i in range(NUM_PLAYERS)]
+
     # Determine which player has the 2 of clubs
     lead = distribution[CARD_2C]
     hearts_broken = False
     for i in range(NUM_CARDS):
         print('lead:', lead)
-        lead_s = None
+        lead_suit = None
         played_cards = []
         for j in range(NUM_PLAYERS):
             p = (j+lead)%4
             player = players[p]
             if i==0 and j==0:
-                # On first card can only play the 2 of clubs
+                # 2 of clubs must be the first card played
                 playable = [CARD_2C]
             else:
                 # See if player has any cards in the lead suit
-                playable = distribution.player_cards(p,lead_s)
+                playable = distribution.player_cards(p,lead_suit)
                 if not playable:
                     # If not then include all player's cards
                     playable = distribution.player_cards(p)
@@ -128,11 +136,13 @@ while (play):
                 # If we end up with no playable cards then bring back the hearts
                 if not playable:
                     playable = distribution.player_cards(p, HEARTS)
-            card = player.play_turn(played_cards,playable)
+                if not playable:
+                    print('ERROR: no playable cards from:',serialize(player.cards))
+            card = player.play_turn(round,lead_suit,played_cards,playable)
             if card not in playable:
                 print('ERROR: card %s played from %s'%(deserialize(card),deserialize(playable)))
             if j==0:
-                _,lead_s = decode(card)
+                _,lead_suit = decode(card)
             if not hearts_broken and in_suit(card,HEARTS):
                 print('hearts broken')
                 hearts_broken = True
@@ -147,10 +157,10 @@ while (play):
             c,s = decode(played_card)
             p = (j+lead)%4
             if j==0:
-                lead_s = s
+                lead_suit = s
                 max_c = c
                 max_p = p
-            if s==lead_s:
+            if s==lead_suit:
                 if c>max_c:
                     max_c = c
                     max_p = p
@@ -158,14 +168,19 @@ while (play):
         # Calculate points for this hand
         points = len(list(filter(lambda x:in_suit(x,HEARTS),played_cards)))
         if CARD_QS in played_cards: points += 13
-        if points: player_points[max_p] += points
+        if points: hand_points[max_p] += points
         lead = max_p
 
         for j,player in enumerate(players):
-            player.played_hand(shift(played_cards,j+1+lead),shift(player_points,j+1+lead))
+            player.played_hand(shift(played_cards,j+1+lead),shift(hand_points,j+1+lead))
 
-        direction = (direction+1)%4
+    for i, points in enumerate(hand_points):
+        player_points[i] += points
 
-        play = not list(filter(lambda x:x>=100,player_points))
+    direction = (direction+1)%4
+
+    round += 1
+
+    play = not list(filter(lambda x:x>=100,player_points))
 
 print('end of game:',player_points)
