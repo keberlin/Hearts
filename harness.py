@@ -49,7 +49,8 @@
 import random
 from card import *
 from distribution import *
-from player import *
+from player_random import RandomPlayer
+from player_ai import AIPlayer
 
 NUM_GAMES = 20
 
@@ -65,7 +66,7 @@ wins = [0 for i in range(len(players))]
 
 for g in range(NUM_GAMES):
 
-    player_points = [0 for i in range(NUM_PLAYERS)]
+    game_points = [0 for i in range(NUM_PLAYERS)]
 
     direction = 0
 
@@ -87,8 +88,8 @@ for g in range(NUM_GAMES):
             player.deal(cards)
             for card in cards:
                 distribution[card] = i
-        for i,player in enumerate(players):
-            print('player',i,'cards:',serialize(player.cards))
+        #for i,player in enumerate(players):
+        #    print('player',i,'cards:',serialize(player.cards))
 
         if direction != 3:
             passed_cards = []
@@ -104,7 +105,7 @@ for g in range(NUM_GAMES):
             for i, player in enumerate(players):
                 j = (i + adj) % 4
                 cards = passed_cards[j]
-                player.deal(cards)
+                player.receive_cards(cards)
                 for card in cards:
                     distribution[card] = i
 
@@ -119,7 +120,7 @@ for g in range(NUM_GAMES):
         lead = distribution[CARD_2C]
         hearts_broken = False
         for hand in range(NUM_CARDS):
-            print('lead:', lead)
+            #print('lead:', lead)
             lead_suit = None
             played_cards = []
             for j in range(NUM_PLAYERS):
@@ -145,17 +146,21 @@ for g in range(NUM_GAMES):
                         playable = distribution.player_cards(p, HEARTS)
                     if not playable:
                         print('ERROR: no playable cards from:',serialize(player.cards))
-                card = player.play_turn(hand,lead_suit,played_cards,playable,shift(hand_points,p+1),shift(player_points,p+1))
+                card = player.play_turn(hand,lead_suit,played_cards,playable,shift(hand_points,p+1),shift(game_points,p+1))
                 if card not in playable:
                     print('player:',player,'ERROR: palyed card %s which is not in the playable list of %s'%(deserialize(card),deserialize(playable)))
                 if j==0:
                     _,lead_suit = decode(card)
                 if not hearts_broken and in_suit(card,HEARTS):
-                    print('hearts broken')
+                    #print('hearts broken')
                     hearts_broken = True
                 distribution[card] = None
                 played_cards.append(card)
-            print('played_cards:',serialize(played_cards))
+            #print('played_cards:',serialize(played_cards))
+
+            for j,player in enumerate(players):
+                p = (j-lead)%4
+                player.played_hand(played_cards,played_cards[p])
 
             # Determine the winner of the hand
             max_c = None
@@ -178,20 +183,26 @@ for g in range(NUM_GAMES):
             if points: hand_points[max_p] += points
             lead = max_p
 
-            for j,player in enumerate(players):
-                player.played_hand(shift(played_cards,p+1),shift(hand_points,p+1),shift(player_points,p+1))
-
-        for i, points in enumerate(hand_points):
-            player_points[i] += points
+        if 26 in hand_points:
+            p = hand_points.index(26)
+            # TODO Offer choice of +26 or -26
+            for i in range(len(players)):
+                if i!=p: game_points[i] += 26
+        else:
+            for i, points in enumerate(hand_points):
+                game_points[i] += points
 
         direction = (direction+1)%4
 
-        play = not list(filter(lambda x:x>=100,player_points))
+        play = not list(filter(lambda x:x>=100,game_points))
 
-    print('end of game:',player_points)
+    print('end of game:',game_points)
 
-    min_points = min(player_points)
-    for p,points in enumerate(player_points):
+    for j, player in enumerate(players):
+        player.played_game(shift(game_points, p + 1))
+
+    min_points = min(game_points)
+    for p,points in enumerate(game_points):
         if points==min_points: wins[p] += 1
 
 print('wins %:',[x*100//NUM_GAMES for x in wins])
