@@ -1,15 +1,22 @@
 from player import *
 
-class AIPlayer(Player):
-    def __init__(self, id):
-        super().__init__(id, 'AI %d' % id)
 
-    def reset(self):
-        super().reset()
+class Round():
+    def __init__(self):
         self.dealt = None
         self.passed_cards = None
         self.received_cards = None
         self.hands = []
+
+
+class AIPlayer(Player):
+    def __init__(self, id):
+        super().__init__(id, 'AI %d' % id)
+        self.rounds = []
+
+    def round(self):
+        super().reset()
+        self.rounds.append(Round())
 
     def _score(self,cards):
         # Score cards with higher values meaning higher score
@@ -44,9 +51,18 @@ class AIPlayer(Player):
                 max_i = i
         return max_i
 
+    def _highest(self,cards,wrt):
+        highest = None
+        for i, card in enumerate(cards):
+            if card > wrt:
+                break
+            highest = i
+        #print('highest:', serialize(cards), serialize(wrt), highest)
+        return highest
+
     def deal(self,cards):
         super().deal(cards)
-        self.dealt = cards.copy()
+        self.rounds[-1].dealt = cards
 
     def pass_cards(self, direction):
         suits = [list(filter(lambda x:in_suit(x,s),self.cards)) for s in range(SUITS_IN_DECK)]
@@ -80,12 +96,12 @@ class AIPlayer(Player):
         for i in range(3-len(ret)):
             ret.append(self._discard(random.choice(self.cards)))
         #print('pass_cards:',serialize(ret))
-        self.passed_cards = ret
+        self.rounds[-1].passed_cards = ret
         return ret
 
     def receive_cards(self,cards):
         super().receive_cards(cards)
-        self.received_cards = cards
+        self.rounds[-1].received_cards = cards
 
     def play_turn(self, hand, lead_suit, cards, playable, hand_points, game_points):
         if len(playable)==1:
@@ -94,21 +110,30 @@ class AIPlayer(Player):
         suits = [list(filter(lambda x:in_suit(x,s),playable)) for s in range(SUITS_IN_DECK)]
         counts = [len(suit) for suit in suits]
 
-        # If it's the first hand then ditch highest club
+        # If it's the first hand then play highest club
         if hand==0 and counts[CLUBS]:
             return self._discard(suits[CLUBS][-1])
 
         # If we have cards of the lead suit
         if lead_suit and counts[lead_suit]:
-            max_card = max(cards)
-            for i,card in enumerate(suits[lead_suit]):
-                if card > max_card:
-                    break
-            if i==0:
-                # We don't have any cards lower so play the highest
-                return self._discard(suits[lead_suit][-1])
+            max_card = max(list(filter(lambda x:in_suit(x,lead_suit),cards)))
+            highest = self._highest(suits[lead_suit],max_card)
+            if not highest:
+                # We don't have any cards lower so play the highest possible
+                ret = suits[lead_suit][-1]
+                if lead_suit==SPADES:
+                    # Special case for spades
+                    if ret==CARD_QS:
+                        # Don't play the queen of spades if possible
+                        if counts[lead_suit]>1:
+                            ret = suits[lead_suit][-2]
+                    elif not CARD_QS in playable:
+                        lower = list(filter(lambda x: x < CARD_QS, suits[SPADES]))
+                        if len(lower):
+                            ret = lower[-1]
+                return self._discard(ret)
             # Play the highest card possible
-            return self._discard(suits[lead_suit][i-1])
+            return self._discard(suits[lead_suit][highest])
 
         scores = [self._score(suit) for suit in suits]
 
@@ -133,9 +158,9 @@ class AIPlayer(Player):
         max_index = self._max_index(scores,counts)
         return self._discard(suits[max_index][-1])
 
-    def played_hand(self,cards,mine):
-        super().played_hand(cards,mine)
-        self.hands.append((cards,mine))
+    def played_hand(self,cards,mine,points):
+        super().played_hand(cards,mine,points)
+        self.rounds[-1].hands.append((cards,mine,points))
 
     def played_game(self,game_points):
         me = game_points[3]
@@ -144,18 +169,21 @@ class AIPlayer(Player):
             return
         # We came last!
         print('lost:',game_points)
-        self.dealt.sort()
-        suits = [list(filter(lambda x:in_suit(x,s),self.dealt)) for s in range(SUITS_IN_DECK)]
-        print('dealt clubs:',serialize(suits[CLUBS]),'diamonds:',serialize(suits[DIAMONDS]),'spades:',serialize(suits[SPADES]),'hearts:',serialize(suits[HEARTS]))
-        if self.passed_cards and self.received_cards:
-            self.passed_cards.sort()
-            self.received_cards.sort()
-            print('passed:',serialize(self.passed_cards))
-            print('received:',serialize(self.received_cards))
-            played = self.dealt+self.received_cards
-            for card in self.passed_cards: played.remove(card)
-            played.sort()
-            suits = [list(filter(lambda x:in_suit(x,s),played)) for s in range(SUITS_IN_DECK)]
-            print('played clubs:',serialize(suits[CLUBS]),'diamonds:',serialize(suits[DIAMONDS]),'spades:',serialize(suits[SPADES]),'hearts:',serialize(suits[HEARTS]))
-        for i,hand in enumerate(self.hands):
-            print('hand %d'%i,serialize(hand[0]),serialize(hand[1]))
+        for i,round in enumerate(self.rounds):
+            print('round %d:'%i)
+            round.dealt.sort()
+            suits = [list(filter(lambda x:in_suit(x,s),round.dealt)) for s in range(SUITS_IN_DECK)]
+            print('dealt clubs:',serialize(suits[CLUBS]),'diamonds:',serialize(suits[DIAMONDS]),'spades:',serialize(suits[SPADES]),'hearts:',serialize(suits[HEARTS]))
+            if round.passed_cards and round.received_cards:
+                round.passed_cards.sort()
+                round.received_cards.sort()
+                print('passed:',serialize(round.passed_cards))
+                print('received:',serialize(round.received_cards))
+                played = round.dealt+round.received_cards
+                for card in round.passed_cards: played.remove(card)
+                played.sort()
+                suits = [list(filter(lambda x:in_suit(x,s),played)) for s in range(SUITS_IN_DECK)]
+                print('played clubs:',serialize(suits[CLUBS]),'diamonds:',serialize(suits[DIAMONDS]),'spades:',serialize(suits[SPADES]),'hearts:',serialize(suits[HEARTS]))
+            for j,hand in enumerate(round.hands):
+                print('hand %d'%j,serialize(hand[0]),serialize(hand[1]),hand[2])
+

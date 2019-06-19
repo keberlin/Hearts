@@ -11,6 +11,9 @@ class Player():
     def __str__(self):
         return 'Player '+self.name
 
+    def round(self):
+        pass
+
     def reset(self):
         self.cards = []
         self.remaining = [CARDS_IN_SUIT for i in range(SUITS_IN_DECK)]
@@ -33,7 +36,7 @@ class Player():
     def play_turn(self,round,lead_suit,cards,playable):
         pass
 
-    def played_hand(self,cards,mine):
+    def played_hand(self,cards,mine,points):
         for card in cards:
             _,s = decode(card)
             self.remaining[s] -= 1

@@ -74,13 +74,16 @@ for g in range(NUM_GAMES):
 
     while (play):
 
+        for i, player in enumerate(players):
+            player.round()
+
         deck = DECK.copy()
         random.shuffle(deck)
         #print('deck:',serialize(deck))
 
         distribution = Distribution()
 
-        for i,player in enumerate(players):
+        for i, player in enumerate(players):
             player.reset()
 
         for i,player in enumerate(players):
@@ -158,9 +161,16 @@ for g in range(NUM_GAMES):
                 played_cards.append(card)
             #print('played_cards:',serialize(played_cards))
 
+            if 26 in hand_points:
+                p = hand_points.index(26)
+                # TODO Offer choice of +26 or -26
+                for i in range(len(players)):
+                    if i != p: hand_points[i] = 26
+                hand_points[p] = 0
+
             for j,player in enumerate(players):
                 p = (j-lead)%4
-                player.played_hand(played_cards,played_cards[p])
+                player.played_hand(played_cards,played_cards[p],hand_points[p])
 
             # Determine the winner of the hand
             max_c = None
@@ -183,14 +193,8 @@ for g in range(NUM_GAMES):
             if points: hand_points[max_p] += points
             lead = max_p
 
-        if 26 in hand_points:
-            p = hand_points.index(26)
-            # TODO Offer choice of +26 or -26
-            for i in range(len(players)):
-                if i!=p: game_points[i] += 26
-        else:
-            for i, points in enumerate(hand_points):
-                game_points[i] += points
+        for i, points in enumerate(hand_points):
+            game_points[i] += points
 
         direction = (direction+1)%4
 
@@ -199,6 +203,7 @@ for g in range(NUM_GAMES):
     print('end of game:',game_points)
 
     for j, player in enumerate(players):
+        p = (j - lead) % 4
         player.played_game(shift(game_points, p + 1))
 
     min_points = min(game_points)
