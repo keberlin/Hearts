@@ -69,19 +69,18 @@ for g in range(NUM_GAMES):
 
     direction = 0
 
-    round = 1
-
     play = True
 
     while (play):
-
-        print('round:',round)
 
         deck = DECK.copy()
         random.shuffle(deck)
         #print('deck:',serialize(deck))
 
         distribution = Distribution()
+
+        for i,player in enumerate(players):
+            player.reset()
 
         for i,player in enumerate(players):
             cards = deck[i*NUM_CARDS:(i+1)*NUM_CARDS]
@@ -119,14 +118,14 @@ for g in range(NUM_GAMES):
         # Determine which player has the 2 of clubs
         lead = distribution[CARD_2C]
         hearts_broken = False
-        for i in range(NUM_CARDS):
+        for hand in range(NUM_CARDS):
             print('lead:', lead)
             lead_suit = None
             played_cards = []
             for j in range(NUM_PLAYERS):
                 p = (j+lead)%4
                 player = players[p]
-                if i==0 and j==0:
+                if hand==0 and j==0:
                     # 2 of clubs must be the first card played
                     playable = [CARD_2C]
                 else:
@@ -135,10 +134,10 @@ for g in range(NUM_GAMES):
                     if not playable:
                         # If not then include all player's cards
                         playable = distribution.player_cards(p)
-                    if i==0:
+                    if hand==0:
                         # On first hand remove queen of spades and all hearts
                         playable = list(filter(lambda x:(x!=CARD_QS),playable))
-                    if i==0 or (j==0 and not hearts_broken):
+                    if hand==0 or (j==0 and not hearts_broken):
                         # On first hand or if lead player and hearts not broken remove all hearts
                         playable = list(filter(lambda x: (not in_suit(x, HEARTS)), playable))
                     # If we end up with no playable cards then bring back the hearts
@@ -146,7 +145,7 @@ for g in range(NUM_GAMES):
                         playable = distribution.player_cards(p, HEARTS)
                     if not playable:
                         print('ERROR: no playable cards from:',serialize(player.cards))
-                card = player.play_turn(round,lead_suit,played_cards,playable)
+                card = player.play_turn(hand,lead_suit,played_cards,playable,shift(hand_points,p+1),shift(player_points,p+1))
                 if card not in playable:
                     print('player:',player,'ERROR: palyed card %s which is not in the playable list of %s'%(deserialize(card),deserialize(playable)))
                 if j==0:
@@ -180,14 +179,12 @@ for g in range(NUM_GAMES):
             lead = max_p
 
             for j,player in enumerate(players):
-                player.played_hand(shift(played_cards,j+1+lead),shift(hand_points,j+1+lead))
+                player.played_hand(shift(played_cards,p+1),shift(hand_points,p+1),shift(player_points,p+1))
 
         for i, points in enumerate(hand_points):
             player_points[i] += points
 
         direction = (direction+1)%4
-
-        round += 1
 
         play = not list(filter(lambda x:x>=100,player_points))
 
@@ -197,4 +194,4 @@ for g in range(NUM_GAMES):
     for p,points in enumerate(player_points):
         if points==min_points: wins[p] += 1
 
-print('wins:',[str(x*100//NUM_GAMES)+'%' for x in wins])
+print('wins %:',[x*100//NUM_GAMES for x in wins])
