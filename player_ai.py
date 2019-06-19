@@ -15,7 +15,7 @@ class AIPlayer(Player):
         self.rounds = []
 
     def round(self):
-        super().reset()
+        super().round()
         self.rounds.append(Round())
 
     def _score(self,cards):

@@ -61,10 +61,11 @@ def shift(a,i):
 NUM_PLAYERS = 4
 NUM_CARDS = len(DECK)//NUM_PLAYERS
 
-players = [RandomPlayer(i) for i in range(3)] + [AIPlayer(3)]
-wins = [0 for i in range(len(players))]
+wins = [0 for i in range(NUM_PLAYERS)]
 
 for g in range(NUM_GAMES):
+
+    players = [RandomPlayer(i) for i in range(3)] + [AIPlayer(3)]
 
     game_points = [0 for i in range(NUM_PLAYERS)]
 
@@ -117,7 +118,7 @@ for g in range(NUM_GAMES):
                 cards = distribution.player_cards(i,s)
                 #print(i,s,len(cards),serialize(cards))
 
-        hand_points = [0 for i in range(NUM_PLAYERS)]
+        round_points = [0 for i in range(NUM_PLAYERS)]
 
         # Determine which player has the 2 of clubs
         lead = distribution[CARD_2C]
@@ -149,7 +150,7 @@ for g in range(NUM_GAMES):
                         playable = distribution.player_cards(p, HEARTS)
                     if not playable:
                         print('ERROR: no playable cards from:',serialize(player.cards))
-                card = player.play_turn(hand,lead_suit,played_cards,playable,shift(hand_points,p+1),shift(game_points,p+1))
+                card = player.play_turn(hand,lead_suit,played_cards,playable,shift(round_points,p+1),shift(game_points,p+1))
                 if card not in playable:
                     print('player:',player,'ERROR: palyed card %s which is not in the playable list of %s'%(deserialize(card),deserialize(playable)))
                 if j==0:
@@ -161,17 +162,6 @@ for g in range(NUM_GAMES):
                 played_cards.append(card)
             #print('played_cards:',serialize(played_cards))
 
-            if 26 in hand_points:
-                p = hand_points.index(26)
-                # TODO Offer choice of +26 or -26
-                for i in range(len(players)):
-                    if i != p: hand_points[i] = 26
-                hand_points[p] = 0
-
-            for j,player in enumerate(players):
-                p = (j-lead)%4
-                player.played_hand(played_cards,played_cards[p],hand_points[p])
-
             # Determine the winner of the hand
             max_c = None
             max_p = None
@@ -182,7 +172,7 @@ for g in range(NUM_GAMES):
                     lead_suit = s
                     max_c = c
                     max_p = p
-                if s==lead_suit:
+                elif s==lead_suit:
                     if c>max_c:
                         max_c = c
                         max_p = p
@@ -190,10 +180,21 @@ for g in range(NUM_GAMES):
             # Calculate points for this hand
             points = len(list(filter(lambda x:in_suit(x,HEARTS),played_cards)))
             if CARD_QS in played_cards: points += 13
-            if points: hand_points[max_p] += points
+
+            if points==26:
+                # TODO Offer choice of +26 or -26
+                for i in range(len(players)):
+                    if i != max_p: round_points[i] += 26
+            else:
+                round_points[max_p] += points
+
+            for j, player in enumerate(players):
+                i = (j - lead) % 4
+                player.played_hand(played_cards, played_cards[i], round_points[j])
+
             lead = max_p
 
-        for i, points in enumerate(hand_points):
+        for i, points in enumerate(round_points):
             game_points[i] += points
 
         direction = (direction+1)%4
