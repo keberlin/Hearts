@@ -14,10 +14,6 @@ class AIPlayer(Player):
         super().__init__(id, 'AI %d' % id)
         self.rounds = []
 
-    def round(self):
-        super().round()
-        self.rounds.append(Round())
-
     def _score(self,cards):
         # Score cards with higher values meaning higher score
         # If we have all the lowest cards then score is 0
@@ -30,7 +26,7 @@ class AIPlayer(Player):
                 score += c * c
             elif i != c:
                 score += c
-        score //= len(cards)
+        score /= len(cards)
         return score
 
     def _min_index(self,scores,counts):
@@ -46,7 +42,7 @@ class AIPlayer(Player):
         max_score = None
         for i,score in enumerate(scores):
             if not counts[i]: continue
-            if not max_score or score<max_score:
+            if not max_score or score>max_score:
                 max_score = score
                 max_i = i
         return max_i
@@ -62,6 +58,7 @@ class AIPlayer(Player):
 
     def deal(self,cards):
         super().deal(cards)
+        self.rounds.append(Round())
         self.rounds[-1].dealt = cards
 
     def pass_cards(self, direction):
@@ -83,16 +80,18 @@ class AIPlayer(Player):
                 ret.append(self._discard(CARD_QS))
 
         # Go through the highest scoring suits and discard their highest cards
-        if scores[CLUBS] >= scores[DIAMONDS] and scores[CLUBS] >= scores[HEARTS]:
-            for card in reversed(suits[CLUBS]):
+        iscores = [((i,score)) for i,score in enumerate(scores)]
+        iscores.sort(key=lambda x:x[1])
+        for iscore in reversed(iscores):
+            i = iscore[0]
+            if i==SPADES: continue
+            for card in reversed(suits[i]):
                 if len(ret)<3: ret.append(self._discard(card))
-        if scores[DIAMONDS] >= scores[HEARTS]:
-            for card in reversed(suits[DIAMONDS]):
-                if len(ret)<3: ret.append(self._discard(card))
-        for card in reversed(suits[HEARTS]):
-            if len(ret)<3: ret.append(self._discard(card))
 
         # Pad out with random selection if needbe
+        if len(ret)<3:
+            print('WARNING passing random cards!')
+            print('clubs:',serialize(suits[CLUBS]),'diamonds:',serialize(suits[DIAMONDS]),'spades:',serialize(suits[SPADES]),'hearts:',serialize(suits[HEARTS]),'counts:',counts,'scores:',scores)
         for i in range(3-len(ret)):
             ret.append(self._discard(random.choice(self.cards)))
         #print('pass_cards:',serialize(ret))
@@ -110,36 +109,47 @@ class AIPlayer(Player):
         suits = [list(filter(lambda x:in_suit(x,s),playable)) for s in range(SUITS_IN_DECK)]
         counts = [len(suit) for suit in suits]
 
+        #print('clubs:',serialize(suits[CLUBS]),'diamonds:',serialize(suits[DIAMONDS]),'spades:',serialize(suits[SPADES]),'hearts:',serialize(suits[HEARTS]),'counts:',counts)
+
         # If it's the first hand then play highest club
         if hand==0 and counts[CLUBS]:
             return self._discard(suits[CLUBS][-1])
 
         # If we have cards of the lead suit
-        if lead_suit and counts[lead_suit]:
+        if lead_suit is not None and counts[lead_suit]:
             max_card = max(list(filter(lambda x:in_suit(x,lead_suit),cards)))
-            highest = self._highest(suits[lead_suit],max_card)
-            if not highest:
-                # We don't have any cards lower so play the highest possible
-                ret = suits[lead_suit][-1]
-                if lead_suit==SPADES:
-                    # Special case for spades
-                    if ret==CARD_QS:
-                        # Don't play the queen of spades if possible
-                        if counts[lead_suit]>1:
-                            ret = suits[lead_suit][-2]
-                    elif not CARD_QS in playable:
-                        lower = list(filter(lambda x: x < CARD_QS, suits[SPADES]))
-                        if len(lower):
-                            ret = lower[-1]
-                return self._discard(ret)
-            # Play the highest card possible
-            return self._discard(suits[lead_suit][highest])
+            if lead_suit==SPADES:
+                if CARD_QS in playable and max_card > CARD_QS:
+                    return self._discard(CARD_QS)
+            # See if we are the last player to play
+            if len(cards)<3:
+                # Try to lose if possible
+                losing = self._highest(suits[lead_suit],max_card)
+                if losing is not None:
+                    # Play the highest losing card possible
+                    return self._discard(suits[lead_suit][losing])
+            # We don't have any cards lower so play the highest possible
+            ret = suits[lead_suit][-1]
+            if lead_suit==SPADES:
+                # Special case for spades
+                if ret==CARD_QS:
+                    # Don't play the queen of spades if possible
+                    if counts[lead_suit]>1:
+                        ret = suits[SPADES][-2]
+                elif not CARD_QS in playable and len(cards) < 3:
+                    lower = list(filter(lambda x: x < CARD_QS, suits[SPADES]))
+                    if len(lower):
+                        ret = lower[-1]
+            return self._discard(ret)
 
         scores = [self._score(suit) for suit in suits]
 
+        #print('scores:',scores)
+
         # If we are starting this hand
-        if not lead_suit:
-            if CARD_QS in playable:
+        if lead_suit is None:
+            # If we have the queen of spades and other suits that are playable
+            if CARD_QS in playable and len(list(filter(None,counts)))>1:
                 # Play the highest card from the highest scoring suit except spades
                 scores[SPADES] = -1
                 max_index = self._max_index(scores,counts)
@@ -151,7 +161,7 @@ class AIPlayer(Player):
             min_index = self._min_index(scores,counts)
             return self._discard(suits[min_index][0])
 
-        # We need to ditch a card
+        # We need to throw away a card
         if CARD_QS in playable: return self._discard(CARD_QS)
         if CARD_KS in playable: return self._discard(CARD_KS)
         if CARD_AS in playable: return self._discard(CARD_AS)
@@ -183,7 +193,7 @@ class AIPlayer(Player):
                 for card in round.passed_cards: played.remove(card)
                 played.sort()
                 suits = [list(filter(lambda x:in_suit(x,s),played)) for s in range(SUITS_IN_DECK)]
-                print('played clubs:',serialize(suits[CLUBS]),'diamonds:',serialize(suits[DIAMONDS]),'spades:',serialize(suits[SPADES]),'hearts:',serialize(suits[HEARTS]))
+                print('clubs:',serialize(suits[CLUBS]),'diamonds:',serialize(suits[DIAMONDS]),'spades:',serialize(suits[SPADES]),'hearts:',serialize(suits[HEARTS]))
             for j,hand in enumerate(round.hands):
                 print('hand %d'%j,serialize(hand[0]),serialize(hand[1]),hand[2])
 

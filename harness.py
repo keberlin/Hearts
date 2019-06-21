@@ -52,7 +52,7 @@ from distribution import *
 from player_random import RandomPlayer
 from player_ai import AIPlayer
 
-NUM_GAMES = 20
+NUM_GAMES = 100
 
 def shift(a,i):
     i %= len(a)
@@ -75,17 +75,11 @@ for g in range(NUM_GAMES):
 
     while (play):
 
-        for i, player in enumerate(players):
-            player.round()
-
         deck = DECK.copy()
         random.shuffle(deck)
         #print('deck:',serialize(deck))
 
         distribution = Distribution()
-
-        for i, player in enumerate(players):
-            player.reset()
 
         for i,player in enumerate(players):
             cards = deck[i*NUM_CARDS:(i+1)*NUM_CARDS]
@@ -203,8 +197,7 @@ for g in range(NUM_GAMES):
 
     print('end of game:',game_points)
 
-    for j, player in enumerate(players):
-        p = (j - lead) % 4
+    for p, player in enumerate(players):
         player.played_game(shift(game_points, p + 1))
 
     min_points = min(game_points)

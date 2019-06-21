@@ -11,20 +11,15 @@ class Player():
     def __str__(self):
         return 'Player '+self.name
 
-    def round(self):
-        pass
-
-    def reset(self):
-        self.cards = []
-        self.remaining = [CARDS_IN_SUIT for i in range(SUITS_IN_DECK)]
-
     def _discard(self,card):
         self.cards.remove(card)
         return card
 
     def deal(self,cards):
-        self.cards += cards
+        self.cards = cards.copy()
         self.cards.sort()
+        self.suit_played = [0 for i in range(SUITS_IN_DECK)]
+        self.suit_hands = [0 for i in range(SUITS_IN_DECK)]
 
     def pass_cards(self,direction):
         pass
@@ -37,9 +32,10 @@ class Player():
         pass
 
     def played_hand(self,cards,mine,points):
-        for card in cards:
+        for i,card in enumerate(cards):
             _,s = decode(card)
-            self.remaining[s] -= 1
+            self.suit_played[s] += 1
+            if i==0: self.suit_hands[s] += 1
 
     def played_game(self,game_points):
         pass
