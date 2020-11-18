@@ -67,10 +67,7 @@ class AIPlayer(Player):
     def pass_cards(self, cards_dealt, direction):
         cards_dealt = cards_dealt.copy()
 
-        suits = [
-            list(filter(lambda x: in_suit(x, s), cards_dealt))
-            for s in range(SUITS_IN_DECK)
-        ]
+        suits = [list(filter(lambda x: in_suit(x, s), cards_dealt)) for s in range(SUITS_IN_DECK)]
         counts = [len(suit) for suit in suits]
         scores = [self._score(suit) for suit in suits]
         # print('clubs:',serialize(suits[CLUBS]),'diamonds:',serialize(suits[DIAMONDS]),'spades:',serialize(suits[SPADES]),'hearts:',serialize(suits[HEARTS]),'counts:',counts,'scores:',scores)
@@ -132,10 +129,7 @@ class AIPlayer(Player):
         if len(playable) == 1:
             return playable[0]
 
-        suits = [
-            list(filter(lambda x: in_suit(x, s), playable))
-            for s in range(SUITS_IN_DECK)
-        ]
+        suits = [list(filter(lambda x: in_suit(x, s), playable)) for s in range(SUITS_IN_DECK)]
         counts = [len(suit) for suit in suits]
 
         # print('clubs:',serialize(suits[CLUBS]),'diamonds:',serialize(suits[DIAMONDS]),'spades:',serialize(suits[SPADES]),'hearts:',serialize(suits[HEARTS]),'counts:',counts)
@@ -214,10 +208,7 @@ class AIPlayer(Player):
         for i, round in enumerate(self.rounds):
             print("round %d:" % i)
             round.dealt.sort()
-            suits = [
-                list(filter(lambda x: in_suit(x, s), round.dealt))
-                for s in range(SUITS_IN_DECK)
-            ]
+            suits = [list(filter(lambda x: in_suit(x, s), round.dealt)) for s in range(SUITS_IN_DECK)]
             print(
                 "dealt clubs:",
                 serialize(suits[CLUBS]),
@@ -237,10 +228,7 @@ class AIPlayer(Player):
                 for card in round.cards_passed:
                     played.remove(card)
                 played.sort()
-                suits = [
-                    list(filter(lambda x: in_suit(x, s), played))
-                    for s in range(SUITS_IN_DECK)
-                ]
+                suits = [list(filter(lambda x: in_suit(x, s), played)) for s in range(SUITS_IN_DECK)]
                 print(
                     "clubs:",
                     serialize(suits[CLUBS]),

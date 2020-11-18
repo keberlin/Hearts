@@ -22,10 +22,12 @@ NM_VALUES = ["2", "3", "4", "5", "6", "7", "8", "9", "X", "J", "Q", "K", "A"]
 NM_SUITS = ["C", "D", "S", "H"]
 
 
-def serialize(i):
-    if type(i) is list:
-        return list(map(lambda x: serialize(x), i))
-    c, s = decode(i)
+def serialize(v):
+    if type(v) is list:
+        return list(map(lambda x: serialize(x), v))
+    if v >= CARDS_IN_DECK:
+        return "--"
+    c, s = decode(v)
     return NM_VALUES[c] + NM_SUITS[s]
 
 
