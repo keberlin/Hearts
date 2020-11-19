@@ -15,11 +15,24 @@ class Player:
     def receive_cards(self, cards_received):
         pass
 
-    def play_turn(self, turn, lead_suit, cards, playable):
+    def play_turn(
+        self,
+        turn,
+        lead_suit,
+        cards_in_turn,
+        playable,
+        points_round,
+        points_game,
+        turns_played,
+        cards_dealt,
+        cards_passed,
+        cards_received,
+        direction,
+    ):
         pass
 
-    def played_hand(self, cards, mine, points):
+    def played_hand(self, cards_in_turn, mine, points_round):
         pass
 
-    def played_game(self, game_points):
+    def played_game(self, points_game, rounds_played):
         pass

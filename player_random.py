@@ -9,8 +9,18 @@ class RandomPlayer(Player):
     def pass_cards(self, cards_dealt, direction):
         return random.sample(cards_dealt, 3)
 
-    def receive_cards(self, cards_received):
-        pass
-
-    def play_turn(self, turn, lead_suit, cards, playable, hand_points, player_points):
+    def play_turn(
+        self,
+        turn,
+        lead_suit,
+        cards_in_turn,
+        playable,
+        points_round,
+        points_game,
+        turns_played,
+        cards_dealt,
+        cards_passed,
+        cards_received,
+        direction,
+    ):
         return random.choice(playable)

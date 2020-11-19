@@ -51,7 +51,7 @@ from card import *
 from player_random import RandomPlayer
 from player_ai import AIPlayer
 
-NUM_GAMES = 1  # 100
+NUM_GAMES = 10
 
 ROUND_LOGFILE = "rounds.log"
 
@@ -71,6 +71,8 @@ for g in range(NUM_GAMES):
     players = [RandomPlayer(i) for i in range(3)] + [AIPlayer(3)]
 
     points_game = [0] * NUM_PLAYERS
+
+    rounds_played = [[] for _ in range(NUM_PLAYERS)]
 
     direction = 0
 
@@ -94,6 +96,7 @@ for g in range(NUM_GAMES):
         for i, player in enumerate(players):
             cards_dealt[i] = deck[i * NUM_CARDS : (i + 1) * NUM_CARDS]
             cards_dealt[i].sort()
+            # Player: dealt
             player.dealt(cards_dealt[i])
             hands[i] = cards_dealt[i].copy()
 
@@ -107,12 +110,13 @@ for g in range(NUM_GAMES):
         cards_received = [None] * NUM_PLAYERS
         if direction != 3:
             for i, player in enumerate(players):
+                # Player: pass_cards
                 cards = player.pass_cards(hands[i], direction)
                 # print(f'player: {player} cards_passed: {cards} from: {hands[i]}')
                 if len(cards) != 3:
-                    print(f"player:{player} ERROR: passed {len(cards)} cards instead of 3")
+                    print(f"ERROR: player {player} passed {len(cards)} cards instead of 3")
                 if not set(cards).issubset(set(hands[i])):
-                    print(f"player:{player} ERROR: passed {serialize(cards)} which are not in {serialize(hands[i])}")
+                    print(f"ERROR: player {player} passed {serialize(cards)} which are not in {serialize(hands[i])}")
                 cards_passed[i] = cards
                 cards_passed[i].sort()
                 for card in cards:
@@ -143,6 +147,7 @@ for g in range(NUM_GAMES):
                 break
         hearts_broken = False
         cards_played = [[] for _ in range(NUM_PLAYERS)]
+        turns_played = []
         for turn in range(NUM_CARDS):
             # print('lead:', lead)
             lead_suit = None
@@ -171,16 +176,24 @@ for g in range(NUM_GAMES):
                     if not playable:
                         playable = list(filter(lambda x: in_suit(x, HEARTS), hands[p]))
                     if not playable:
-                        print("ERROR: no playable cards from:", serialize(player.cards))
+                        print(f"ERROR: no playable cards from {serialize(hands[p])}")
+                # Player: play_turn
                 card = player.play_turn(
-                    turn, lead_suit, cards_in_turn, playable, shift(points_round, p + 1), shift(points_game, p + 1),
+                    turn,
+                    lead_suit,
+                    cards_in_turn,
+                    playable,
+                    shift(points_round, p),
+                    shift(points_game, p),
+                    [((x - p) % NUM_PLAYERS, y) for x, y in turns_played],
+                    cards_dealt[p],
+                    cards_passed[p],
+                    cards_received[p],
+                    direction,
                 )
                 if card not in playable:
                     print(
-                        "player:",
-                        player,
-                        "ERROR: palyed card %s which is not in the playable list of %s"
-                        % (deserialize(card), deserialize(playable)),
+                        f"ERROR: player: {player} played card {serialize(card)} which is not in the playable list of {serialize(playable)}"
                     )
                 cards_in_turn.append(card)
                 hands[p].remove(card)
@@ -197,6 +210,9 @@ for g in range(NUM_GAMES):
                 p = (i - lead) % NUM_PLAYERS
                 cards_played[i].append(cards_in_turn[p])
                 # print('player:',player,'has played:',serialize(cards_played[i]))
+
+            # Keep track of each round's played cards and who led
+            turns_played.append((lead, cards_in_turn))
 
             # Determine the winner of the hand
             max_c = None
@@ -228,9 +244,22 @@ for g in range(NUM_GAMES):
 
             for i, player in enumerate(players):
                 p = (i - lead) % NUM_PLAYERS
+                # Player: played_hand
                 player.played_hand(cards_in_turn, cards_in_turn[p], points_round[i])
 
             lead = max_p
+
+        # Keep track of all hands played for the whole game
+        for i, player in enumerate(players):
+            rounds_played[i].append(
+                (
+                    [((x - i) % NUM_PLAYERS, y) for x, y in turns_played],
+                    cards_dealt[i],
+                    cards_passed[i],
+                    cards_received[i],
+                    direction,
+                )
+            )
 
         #
         # Log the played cards along with their points
@@ -244,8 +273,8 @@ for g in range(NUM_GAMES):
             assert cards == set(cards_played[i])
             line = (
                 cards_dealt[i]
-                + (cards_passed[i] if direction != 3 else [CARDS_IN_DECK] * 3)
-                + (cards_received[i] if direction != 3 else [CARDS_IN_DECK] * 3)
+                + (cards_passed[i] if cards_passed[i] else [CARDS_IN_DECK] * 3)
+                + (cards_received[i] if cards_received[i] else [CARDS_IN_DECK] * 3)
                 + cards_played[i]
                 + [points_round[i]]
             )
@@ -265,7 +294,8 @@ for g in range(NUM_GAMES):
     # Inform each player of the final score
     #
     for i, player in enumerate(players):
-        player.played_game(shift(points_game, i + 1))
+        # Player: played_game
+        player.played_game(shift(points_game, i), rounds_played[i])
 
     #
     # Determine which player has won

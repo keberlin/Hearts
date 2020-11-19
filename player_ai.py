@@ -3,14 +3,6 @@ from card import *
 from player import *
 
 
-class Round:
-    def __init__(self):
-        self.dealt = None
-        self.cards_passed = None
-        self.cards_received = None
-        self.hands = []
-
-
 class AIPlayer(Player):
     def __init__(self, id):
         super().__init__(id, "AI %d" % id)
@@ -59,10 +51,6 @@ class AIPlayer(Player):
             highest = i
         # print('highest:', serialize(cards), serialize(wrt), highest)
         return highest
-
-    def dealt(self, cards_dealt):
-        self.rounds.append(Round())
-        self.rounds[-1].dealt = cards_dealt
 
     def pass_cards(self, cards_dealt, direction):
         cards_dealt = cards_dealt.copy()
@@ -118,14 +106,22 @@ class AIPlayer(Player):
             ret.append(random.sample(cards_dealt, 3 - len(ret)))
         # print('pass_cards:',serialize(ret))
 
-        self.rounds[-1].cards_passed = ret
-
         return ret
 
-    def receive_cards(self, cards_received):
-        self.rounds[-1].cards_received = cards_received
-
-    def play_turn(self, turn, lead_suit, cards, playable, hand_points, game_points):
+    def play_turn(
+        self,
+        turn,
+        lead_suit,
+        cards_in_turn,
+        playable,
+        points_round,
+        points_game,
+        turns_played,
+        cards_dealt,
+        cards_passed,
+        cards_received,
+        direction,
+    ):
         if len(playable) == 1:
             return playable[0]
 
@@ -140,12 +136,12 @@ class AIPlayer(Player):
 
         # If we have cards of the lead suit
         if lead_suit is not None and counts[lead_suit]:
-            max_card = max(list(filter(lambda x: in_suit(x, lead_suit), cards)))
+            max_card = max(list(filter(lambda x: in_suit(x, lead_suit), cards_in_turn)))
             if lead_suit == SPADES:
                 if CARD_QS in playable and max_card > CARD_QS:
                     return CARD_QS
             # See if we are the last player to play
-            if len(cards) < 3:
+            if len(cards_in_turn) < 3:
                 # Try to lose if possible
                 losing = self._highest(suits[lead_suit], max_card)
                 if losing is not None:
@@ -159,7 +155,7 @@ class AIPlayer(Player):
                     # Don't play the queen of spades if possible
                     if counts[lead_suit] > 1:
                         ret = suits[SPADES][-2]
-                elif not CARD_QS in playable and len(cards) < 3:
+                elif not CARD_QS in playable and len(cards_in_turn) < 3:
                     lower = list(filter(lambda x: x < CARD_QS, suits[SPADES]))
                     if len(lower):
                         ret = lower[-1]
@@ -194,50 +190,22 @@ class AIPlayer(Player):
         max_index = self._max_index(scores, counts)
         return suits[max_index][-1]
 
-    def played_hand(self, cards, mine, points):
-        super().played_hand(cards, mine, points)
-        self.rounds[-1].hands.append((cards, mine, points))
-
-    def played_game(self, game_points):
-        me = game_points[3]
-        game_points.sort()
-        if game_points.index(me) < 3:
+    def played_game(self, points_game, rounds_played):
+        if min(points_game) == points_game[0]:
             return
-        # We came last!
-        print("lost:", game_points)
-        for i, round in enumerate(self.rounds):
-            print("round %d:" % i)
-            round.dealt.sort()
-            suits = [list(filter(lambda x: in_suit(x, s), round.dealt)) for s in range(SUITS_IN_DECK)]
+
+        # We didn't come first!
+        print("points_game:", points_game)
+        for turns_played, cards_dealt, cards_passed, cards_received, direction in rounds_played:
+            cards_played = set(cards_dealt)
+            if cards_passed:
+                cards_played -= set(cards_passed)
+            if cards_received:
+                cards_played |= set(cards_received)
+            cards_played = list(cards_played)
+            cards_played.sort()
             print(
-                "dealt clubs:",
-                serialize(suits[CLUBS]),
-                "diamonds:",
-                serialize(suits[DIAMONDS]),
-                "spades:",
-                serialize(suits[SPADES]),
-                "hearts:",
-                serialize(suits[HEARTS]),
+                f"dealt: {serialize(cards_dealt)}, passed: {serialize(cards_passed)}, received: {serialize(cards_received)}, direction: {direction}, played: {serialize(cards_played)}"
             )
-            if round.cards_passed and round.cards_received:
-                round.cards_passed.sort()
-                round.cards_received.sort()
-                print("passed:", serialize(round.cards_passed))
-                print("received:", serialize(round.cards_received))
-                played = round.dealt + round.cards_received
-                for card in round.cards_passed:
-                    played.remove(card)
-                played.sort()
-                suits = [list(filter(lambda x: in_suit(x, s), played)) for s in range(SUITS_IN_DECK)]
-                print(
-                    "clubs:",
-                    serialize(suits[CLUBS]),
-                    "diamonds:",
-                    serialize(suits[DIAMONDS]),
-                    "spades:",
-                    serialize(suits[SPADES]),
-                    "hearts:",
-                    serialize(suits[HEARTS]),
-                )
-            for j, hand in enumerate(round.hands):
-                print("hand %d" % j, serialize(hand[0]), serialize(hand[1]), hand[2])
+            for lead, cards in turns_played:
+                print(f"lead: {lead} cards: {serialize(cards)}")

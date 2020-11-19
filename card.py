@@ -25,6 +25,8 @@ NM_SUITS = ["C", "D", "S", "H"]
 def serialize(v):
     if type(v) is list:
         return list(map(lambda x: serialize(x), v))
+    if v is None:
+        return ""
     if v >= CARDS_IN_DECK:
         return "--"
     c, s = decode(v)
