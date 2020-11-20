@@ -53,8 +53,11 @@ class AIPlayer(Player):
         return highest
 
     def pass_cards(self, cards_dealt, direction):
+        # Separate the cards into suits and counts of cards in each suit
         suits = [list(filter(lambda x: in_suit(x, s), cards_dealt)) for s in range(SUITS_IN_DECK)]
         counts = [len(suit) for suit in suits]
+
+        # Calculate a nominal score for each suit
         scores = [self._score(suit) for suit in suits]
         # print('clubs:',serialize(suits[CLUBS]),'diamonds:',serialize(suits[DIAMONDS]),'spades:',serialize(suits[SPADES]),'hearts:',serialize(suits[HEARTS]),'counts:',counts,'scores:',scores)
 
@@ -111,10 +114,12 @@ class AIPlayer(Player):
         turn,
         lead_suit,
         cards_in_turn,
+        hand,
         playable,
         points_round,
         points_game,
         turns_played,
+        cards_remaining,
         cards_dealt,
         cards_passed,
         cards_received,
@@ -123,6 +128,7 @@ class AIPlayer(Player):
         if len(playable) == 1:
             return playable[0]
 
+        # Separate the cards into suits and counts of cards in each suit
         suits = [list(filter(lambda x: in_suit(x, s), playable)) for s in range(SUITS_IN_DECK)]
         counts = [len(suit) for suit in suits]
 

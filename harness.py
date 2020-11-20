@@ -47,11 +47,12 @@
 # Game over - scores, order and placement of each 4 players
 
 import random
+from itertools import chain
 from card import *
 from player_random import RandomPlayer
 from player_ai import AIPlayer
 
-NUM_GAMES = 10
+NUM_GAMES = 1
 
 ROUND_LOGFILE = "rounds.log"
 
@@ -144,8 +145,9 @@ for g in range(NUM_GAMES):
                 lead = i
                 break
         hearts_broken = False
-        cards_played = [set() for _ in range(NUM_PLAYERS)]
+        cards_played = [[] for _ in range(NUM_PLAYERS)]
         turns_played = []
+        cards_remaining = set(DECK)
         for turn in range(NUM_CARDS):
             # print('lead:', lead)
             lead_suit = None
@@ -181,10 +183,12 @@ for g in range(NUM_GAMES):
                     turn,
                     lead_suit,
                     cards_in_turn,
+                    hands[p],
                     playable,
                     shift(points_round, p),
                     shift(points_game, p),
                     [((x - p) % NUM_PLAYERS, y) for x, y in turns_played],
+                    cards_remaining - hands[p],
                     cards_dealt[p],
                     cards_passed[p],
                     cards_received[p],
@@ -195,8 +199,15 @@ for g in range(NUM_GAMES):
                         f"ERROR: player: {player} played card {serialize(card)} which is not in the playable list of {serialize(playable)}"
                     )
                     exit(1)
+
+                # Keep track of the cards played in this hand so far
                 cards_in_turn.append(card)
+                # Remove this card from the player's current hand
                 hands[p].remove(card)
+                # Keep track of each player's played cards
+                cards_played[p].append(card)
+                # Keep track of the remaining cards to be played
+                cards_remaining.remove(card)
 
                 if j == 0:
                     _, lead_suit = decode(card)
@@ -204,12 +215,6 @@ for g in range(NUM_GAMES):
                     # print('hearts broken')
                     hearts_broken = True
             # print('lead:',lead,'cards_in_turn:',serialize(cards_in_turn))
-
-            # Keep track of each player's played cards
-            for i, player in enumerate(players):
-                p = (i - lead) % NUM_PLAYERS
-                cards_played[i].add(cards_in_turn[p])
-                # print('player:',player,'has played:',serialize(cards_played[i]))
 
             # Keep track of each round's played cards and who led
             turns_played.append((lead, cards_in_turn))
@@ -265,17 +270,17 @@ for g in range(NUM_GAMES):
         # Log the played cards along with their points
         #
         for i, player in enumerate(players):
-            cards = cards_dealt[i]
+            cards = cards_dealt[i].copy()
             if cards_passed[i]:
                 cards -= cards_passed[i]
             if cards_received[i]:
                 cards |= cards_received[i]
-            assert cards == cards_played[i]
+            assert cards == set(cards_played[i])
             line = (
                 sorted(list(cards_dealt[i]))
                 + (sorted(list(cards_passed[i])) if cards_passed[i] else [CARDS_IN_DECK] * 3)
                 + (sorted(list(cards_received[i])) if cards_received[i] else [CARDS_IN_DECK] * 3)
-                + sorted(list(cards_played[i]))
+                + cards_played[i]
                 + [points_round[i]]
             )
             with open(ROUND_LOGFILE, "ab") as f:
