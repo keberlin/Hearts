@@ -94,8 +94,7 @@ for g in range(NUM_GAMES):
         #
         cards_dealt = [None] * NUM_PLAYERS
         for i, player in enumerate(players):
-            cards_dealt[i] = deck[i * NUM_CARDS : (i + 1) * NUM_CARDS]
-            cards_dealt[i].sort()
+            cards_dealt[i] = set(deck[i * NUM_CARDS : (i + 1) * NUM_CARDS])
             # Player: dealt
             player.dealt(cards_dealt[i])
             hands[i] = cards_dealt[i].copy()
@@ -111,26 +110,25 @@ for g in range(NUM_GAMES):
         if direction != 3:
             for i, player in enumerate(players):
                 # Player: pass_cards
-                cards = player.pass_cards(hands[i], direction)
+                cards = set(player.pass_cards(list(hands[i]), direction))
                 # print(f'player: {player} cards_passed: {cards} from: {hands[i]}')
                 if len(cards) != 3:
                     print(f"ERROR: player {player} passed {len(cards)} cards instead of 3")
-                if not set(cards).issubset(set(hands[i])):
+                    exit(1)
+                if not cards.issubset(hands[i]):
                     print(f"ERROR: player {player} passed {serialize(cards)} which are not in {serialize(hands[i])}")
+                    exit(1)
                 cards_passed[i] = cards
-                cards_passed[i].sort()
-                for card in cards:
-                    hands[i].remove(card)
-                assert not set(cards_passed[i]).issubset(set(hands[i]))
+                hands[i] -= cards_passed[i]
+                assert not cards_passed[i].issubset(hands[i])
 
             adj = -1 if direction == 0 else 1 if direction == 1 else 2
             for i, player in enumerate(players):
-                j = (i + adj) % 4
+                j = (i + adj) % NUM_PLAYERS
                 cards_received[i] = cards_passed[j]
                 player.receive_cards(cards_received[i])
-                hands[i].extend(cards_received[i])
-                hands[i].sort()
-                assert set(cards_received[i]).issubset(set(hands[i]))
+                hands[i] |= cards_received[i]
+                assert cards_received[i].issubset(hands[i])
 
         # for i,player in enumerate(players):
         #    print(f'player: {player} cards: {serialize(hands[i])}')
@@ -146,7 +144,7 @@ for g in range(NUM_GAMES):
                 lead = i
                 break
         hearts_broken = False
-        cards_played = [[] for _ in range(NUM_PLAYERS)]
+        cards_played = [set() for _ in range(NUM_PLAYERS)]
         turns_played = []
         for turn in range(NUM_CARDS):
             # print('lead:', lead)
@@ -165,7 +163,7 @@ for g in range(NUM_GAMES):
                         playable = list(filter(lambda x: in_suit(x, lead_suit), hands[p]))
                     if not playable:
                         # If not then include all player's cards
-                        playable = hands[p]
+                        playable = list(hands[p])
                     if turn == 0:
                         # On first hand remove queen of spades
                         playable = list(filter(lambda x: (x != CARD_QS), playable))
@@ -177,6 +175,7 @@ for g in range(NUM_GAMES):
                         playable = list(filter(lambda x: in_suit(x, HEARTS), hands[p]))
                     if not playable:
                         print(f"ERROR: no playable cards from {serialize(hands[p])}")
+                        exit(1)
                 # Player: play_turn
                 card = player.play_turn(
                     turn,
@@ -195,6 +194,7 @@ for g in range(NUM_GAMES):
                     print(
                         f"ERROR: player: {player} played card {serialize(card)} which is not in the playable list of {serialize(playable)}"
                     )
+                    exit(1)
                 cards_in_turn.append(card)
                 hands[p].remove(card)
 
@@ -208,7 +208,7 @@ for g in range(NUM_GAMES):
             # Keep track of each player's played cards
             for i, player in enumerate(players):
                 p = (i - lead) % NUM_PLAYERS
-                cards_played[i].append(cards_in_turn[p])
+                cards_played[i].add(cards_in_turn[p])
                 # print('player:',player,'has played:',serialize(cards_played[i]))
 
             # Keep track of each round's played cards and who led
@@ -265,17 +265,17 @@ for g in range(NUM_GAMES):
         # Log the played cards along with their points
         #
         for i, player in enumerate(players):
-            cards = set(cards_dealt[i])
+            cards = cards_dealt[i]
             if cards_passed[i]:
-                cards -= set(cards_passed[i])
+                cards -= cards_passed[i]
             if cards_received[i]:
-                cards |= set(cards_received[i])
-            assert cards == set(cards_played[i])
+                cards |= cards_received[i]
+            assert cards == cards_played[i]
             line = (
-                cards_dealt[i]
-                + (cards_passed[i] if cards_passed[i] else [CARDS_IN_DECK] * 3)
-                + (cards_received[i] if cards_received[i] else [CARDS_IN_DECK] * 3)
-                + cards_played[i]
+                sorted(list(cards_dealt[i]))
+                + (sorted(list(cards_passed[i])) if cards_passed[i] else [CARDS_IN_DECK] * 3)
+                + (sorted(list(cards_received[i])) if cards_received[i] else [CARDS_IN_DECK] * 3)
+                + sorted(list(cards_played[i]))
                 + [points_round[i]]
             )
             with open(ROUND_LOGFILE, "ab") as f:

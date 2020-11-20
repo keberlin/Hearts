@@ -53,8 +53,6 @@ class AIPlayer(Player):
         return highest
 
     def pass_cards(self, cards_dealt, direction):
-        cards_dealt = cards_dealt.copy()
-
         suits = [list(filter(lambda x: in_suit(x, s), cards_dealt)) for s in range(SUITS_IN_DECK)]
         counts = [len(suit) for suit in suits]
         scores = [self._score(suit) for suit in suits]
@@ -195,7 +193,6 @@ class AIPlayer(Player):
             return
 
         # We didn't come first!
-        print("points_game:", points_game)
         for turns_played, cards_dealt, cards_passed, cards_received, direction in rounds_played:
             cards_played = set(cards_dealt)
             if cards_passed:
