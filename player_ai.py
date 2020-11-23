@@ -16,11 +16,8 @@ class AIPlayer(Player):
         score = 0
         for i, card in enumerate(cards):
             c, s = decode(card)
-            if i == 0:
-                score += c * c
-            elif i != c:
-                score += c
-        score /= len(cards)
+            if i != c:
+                score += c / (i + 1)
         return score
 
     def _min_index(self, scores, counts):
@@ -53,59 +50,68 @@ class AIPlayer(Player):
         return highest
 
     def pass_cards(self, cards_dealt, direction):
-        # Separate the cards into suits and counts of cards in each suit
-        suits = [list(filter(lambda x: in_suit(x, s), cards_dealt)) for s in range(SUITS_IN_DECK)]
-        counts = [len(suit) for suit in suits]
+        def _rule_queen_spades(suits):
+            # Pass the Queen of Spades if we have less than 4 Spades
+            if CARD_QS in suits[SPADES] and len(suits[SPADES]) < 4:
+                return CARD_QS
 
-        # Calculate a nominal score for each suit
-        scores = [self._score(suit) for suit in suits]
-        # print('clubs:',serialize(suits[CLUBS]),'diamonds:',serialize(suits[DIAMONDS]),'spades:',serialize(suits[SPADES]),'hearts:',serialize(suits[HEARTS]),'counts:',counts,'scores:',scores)
+        def _rule_high_spades(suits):
+            # If we have no lower spades then ditch the high ones if less than 4 Spades
+            lower = list(filter(lambda x: x < CARD_QS, suits[SPADES]))
+            if len(lower) == 0 and 1 < len(suits[SPADES]) < 4:
+                return suits[SPADES][-1]
+
+        def _rule_high_except_spades(suits):
+            # Calculate a nominal score for each suit
+            scores = [self._score(suit) if i != SPADES else -1 for i, suit in enumerate(suits)]
+            print(
+                f"clubs: {serialize(suits[CLUBS])}, diamonds: {serialize(suits[DIAMONDS])}, spades: {serialize(suits[SPADES])}, hearts: {serialize(suits[HEARTS])}, scores: {scores}"
+            )
+            iscores = [((i, score)) for i, score in enumerate(scores)]
+            iscores.sort(key=lambda x: x[1])
+            i, score = iscores[-1]
+            return suits[i][-1]
+
+        def _rules():
+            yield _rule_queen_spades
+            yield _rule_high_spades
+            yield _rule_high_except_spades
+
+        # Ensure the cards are sorted
+        cards_dealt.sort()
 
         ret = []
 
-        # If we have no lower spades then ditch the high ones
-        lower = list(filter(lambda x: x < CARD_QS, suits[SPADES]))
-        if len(lower) == 0 and counts[SPADES]:
-            for card in suits[SPADES]:
-                ret.append(card)
-                cards_dealt.remove(card)
-        # If we have the queen of spades then maybe pass it
-        if CARD_QS in cards_dealt:
-            if counts[SPADES] < 4:
-                ret.append(CARD_QS)
-                cards_dealt.remove(CARD_QS)
-
-        # Go through the highest scoring suits and discard their highest cards
-        iscores = [((i, score)) for i, score in enumerate(scores)]
-        iscores.sort(key=lambda x: x[1])
-        for iscore in reversed(iscores):
-            i = iscore[0]
-            if i == SPADES:
-                continue
-            for card in reversed(suits[i]):
-                if len(ret) < 3:
+        while len(ret) < 3:
+            for rule in _rules():
+                # Separate the cards into suits and counts of cards in each suit
+                suits = [list(filter(lambda x: in_suit(x, s), cards_dealt)) for s in range(SUITS_IN_DECK)]
+                # Run through the rules..
+                card = rule(suits)
+                if card is not None:
                     ret.append(card)
                     cards_dealt.remove(card)
 
         # Pad out with random selection if needbe
-        if len(ret) < 3:
-            print("WARNING passing random cards!")
-            print(
-                "clubs:",
-                serialize(suits[CLUBS]),
-                "diamonds:",
-                serialize(suits[DIAMONDS]),
-                "spades:",
-                serialize(suits[SPADES]),
-                "hearts:",
-                serialize(suits[HEARTS]),
-                "counts:",
-                counts,
-                "scores:",
-                scores,
-            )
-            ret.append(random.sample(cards_dealt, 3 - len(ret)))
-        # print('pass_cards:',serialize(ret))
+        # if len(ret) < 3:
+        #    print("WARNING passing random cards!")
+        #    print(
+        #        "clubs:",
+        #        serialize(suits[CLUBS]),
+        #        "diamonds:",
+        #        serialize(suits[DIAMONDS]),
+        #        "spades:",
+        #        serialize(suits[SPADES]),
+        #        "hearts:",
+        #        serialize(suits[HEARTS]),
+        #        "counts:",
+        #        counts,
+        #        "scores:",
+        #        scores,
+        #    )
+        #    ret.append(random.sample(cards_dealt, 3 - len(ret)))
+
+        print("pass_cards:", serialize(ret))
 
         return ret
 
