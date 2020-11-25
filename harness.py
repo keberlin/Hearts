@@ -46,11 +46,17 @@
 
 # Game over - scores, order and placement of each 4 players
 
+import argparse
 import random
-from itertools import chain
 from card import *
 from player_random import RandomPlayer
 from player_ai import AIPlayer
+
+parser = argparse.ArgumentParser(description="Hearts card game harness.")
+parser.add_argument(
+    "-f", dest="force_lose", action="store_true", default=False, help="Play until AI player loses", required=False
+)
+args = parser.parse_args()
 
 NUM_GAMES = 1
 
@@ -67,7 +73,12 @@ NUM_CARDS = len(DECK) // NUM_PLAYERS
 
 wins = [0] * NUM_PLAYERS
 
-for g in range(NUM_GAMES):
+num_games = 0
+
+while True:
+
+    if not (args.force_lose or num_games < NUM_GAMES):
+        break
 
     players = [RandomPlayer(i) for i in range(3)] + [AIPlayer(3)]
 
@@ -187,7 +198,7 @@ for g in range(NUM_GAMES):
                     playable,
                     shift(points_round, p),
                     shift(points_game, p),
-                    [((x - p) % NUM_PLAYERS, y) for x, y in turns_played],
+                    [((x - p) % NUM_PLAYERS, y) for x, y, _ in turns_played],
                     cards_remaining - hands[p],
                     cards_dealt[p],
                     cards_passed[p],
@@ -216,9 +227,6 @@ for g in range(NUM_GAMES):
                     hearts_broken = True
             # print('lead:',lead,'cards_in_turn:',serialize(cards_in_turn))
 
-            # Keep track of each round's played cards and who led
-            turns_played.append((lead, cards_in_turn))
-
             # Determine the winner of the hand
             max_c = None
             max_p = None
@@ -235,22 +243,30 @@ for g in range(NUM_GAMES):
                         max_p = p
 
             # Calculate points for this hand
-            points = len(list(filter(lambda x: in_suit(x, HEARTS), cards_in_turn)))
-            if CARD_QS in cards_in_turn:
-                points += 13
+            points = calc_points(cards_in_turn)
+
+            # Calcluate points for each player
+            points_in_turn = [0] * NUM_PLAYERS
 
             if points == 26:
                 # TODO Offer choice of +26 or -26
                 for i in range(NUM_PLAYERS):
                     if i != max_p:
-                        points_round[i] += 26
+                        points_in_turn[i] = 26
             else:
-                points_round[max_p] += points
+                points_in_turn[max_p] = points
+
+            # Calculate the accumulated points for each player
+            for i in range(NUM_PLAYERS):
+                points_round[i] += points_in_turn[i]
 
             for i, player in enumerate(players):
                 p = (i - lead) % NUM_PLAYERS
                 # Player: played_hand
                 player.played_hand(cards_in_turn, cards_in_turn[p], points_round[i])
+
+            # Keep track of each round's who led and played cards
+            turns_played.append((lead, cards_in_turn, points_in_turn))
 
             lead = max_p
 
@@ -258,7 +274,7 @@ for g in range(NUM_GAMES):
         for i, player in enumerate(players):
             rounds_played[i].append(
                 (
-                    [((x - i) % NUM_PLAYERS, y) for x, y in turns_played],
+                    [((x - i) % NUM_PLAYERS, y, shift(z, i)) for x, y, z in turns_played],
                     cards_dealt[i],
                     cards_passed[i],
                     cards_received[i],
@@ -295,6 +311,8 @@ for g in range(NUM_GAMES):
 
     print("end of game:", points_game)
 
+    num_games += 1
+
     #
     # Inform each player of the final score
     #
@@ -306,8 +324,14 @@ for g in range(NUM_GAMES):
     # Determine which player has won
     #
     min_points = min(points_game)
-    for i, points in enumerate(points_game):
-        if points == min_points:
-            wins[i] += 1
+    winners = []
+    for i in range(NUM_PLAYERS):
+        if points_game[i] == min_points:
+            winners.append(i)
+    for i in winners:
+        wins[i] += 1
 
-print("wins %:", [x * 100 // NUM_GAMES for x in wins])
+    if args.force_lose and 3 not in winners:
+        break
+
+print("wins %:", [x * 100 // num_games for x in wins])

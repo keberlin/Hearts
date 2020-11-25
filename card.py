@@ -43,3 +43,11 @@ CARD_2C = deserialize("2C")
 CARD_QS = deserialize("QS")
 CARD_KS = deserialize("KS")
 CARD_AS = deserialize("AS")
+
+
+def calc_points(cards):
+    # Calculate points for this hand
+    points = len(list(filter(lambda x: in_suit(x, HEARTS), cards)))
+    if CARD_QS in cards:
+        points += 13
+    return points
