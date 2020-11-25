@@ -24,7 +24,7 @@ NM_SUITS = ["C", "D", "S", "H"]
 
 def serialize(v):
     if type(v) is list:
-        return list(map(lambda x: serialize(x), sorted(v)))
+        return list(map(lambda x: serialize(x), v))
     if type(v) is set:
         return serialize(list(v))
     if v is None:

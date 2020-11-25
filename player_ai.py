@@ -9,15 +9,14 @@ class AIPlayer(Player):
         self.rounds = []
 
     def _score(self, cards):
-        # Score cards with higher values meaning higher score
-        # If we have all the lowest cards then score is 0
-        if not len(cards):
-            return 0
+        # Calculate a nominal score for a set of cards in one suit
         score = 0
+        a = 0
+        l = 13 - len(cards) # The more cards we have the lower the score
         for i, card in enumerate(cards):
             c, s = decode(card)
-            if i != c:
-                score += c / (i + 1)
+            a += c - i # Keep an accumulation of card vs position
+            score += a * l / (i + 1) # Reduce the score the further into the list of cards we are
         return score
 
     def _min_index(self, scores, counts):
@@ -63,22 +62,18 @@ class AIPlayer(Player):
 
         def _rule_high_except_spades(suits):
             # Calculate a nominal score for each suit
-            scores = [self._score(suit) if i != SPADES else -1 for i, suit in enumerate(suits)]
+            scores = list(filter(lambda x: x[1] != SPADES, [(self._score(suit), i) for i, suit in enumerate(suits)]))
             print(
                 f"clubs: {serialize(suits[CLUBS])}, diamonds: {serialize(suits[DIAMONDS])}, spades: {serialize(suits[SPADES])}, hearts: {serialize(suits[HEARTS])}, scores: {scores}"
             )
-            iscores = [((i, score)) for i, score in enumerate(scores)]
-            iscores.sort(key=lambda x: x[1])
-            i, score = iscores[-1]
+            scores.sort()
+            score, i = scores[-1]
             return suits[i][-1]
 
         def _rules():
             yield _rule_queen_spades
             yield _rule_high_spades
             yield _rule_high_except_spades
-
-        # Ensure the cards are sorted
-        cards_dealt.sort()
 
         ret = []
 
@@ -211,10 +206,9 @@ class AIPlayer(Player):
                 cards_played -= set(cards_passed)
             if cards_received:
                 cards_played |= set(cards_received)
-            cards_played = list(cards_played)
-            cards_played.sort()
+            cards_played = sorted(list(cards_played))
             print(
-                f"dealt: {serialize(cards_dealt)}, passed: {serialize(cards_passed)}, received: {serialize(cards_received)}, direction: {direction}, played: {serialize(cards_played)}"
+                f"dealt: {serialize(sorted(list(cards_dealt)))}, passed: {serialize(cards_passed)}, received: {serialize(cards_received)}, direction: {direction}, played: {serialize(cards_played)}"
             )
             for lead, cards in turns_played:
                 print(f"lead: {lead} cards: {serialize(cards)}")
