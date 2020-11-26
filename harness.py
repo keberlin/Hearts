@@ -311,8 +311,6 @@ while True:
 
     print("end of game:", points_game)
 
-    num_games += 1
-
     #
     # Inform each player of the final score
     #
@@ -328,10 +326,19 @@ while True:
     for i in range(NUM_PLAYERS):
         if points_game[i] == min_points:
             winners.append(i)
+    max_points = max(points_game)
+    losers = []
+    for i in range(NUM_PLAYERS):
+        if points_game[i] == max_points:
+            losers.append(i)
+
+    # Keep track of how many wins each player has
     for i in winners:
         wins[i] += 1
 
-    if args.force_lose and 3 not in winners:
+    if args.force_lose and 3 in losers:
         break
+
+    num_games += 1
 
 print("wins %:", [x * 100 // num_games for x in wins])
