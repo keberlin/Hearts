@@ -34,24 +34,24 @@ class AIPlayer(Player):
     def _highest(self, cards, wrt):
         highest = None
         for card in cards:
-            if card > wrt:
+            if card >= wrt:
                 break
             highest = card
         return highest
 
     def pass_cards(self, cards_dealt, direction):
-        def _rule_queen_spades(suits):
+        def _pass_queen_spades(suits):
             # Pass the Queen of Spades if we have less than 4 Spades
             if CARD_QS in suits[SPADES] and len(suits[SPADES]) < 4:
                 return CARD_QS
 
-        def _rule_high_spades(suits):
+        def _pass_high_spades(suits):
             # If we have no lower spades then ditch the high ones if less than 4 Spades
             lower = list(filter(lambda x: x < CARD_QS, suits[SPADES]))
             if len(lower) == 0 and 1 < len(suits[SPADES]) < 4:
                 return suits[SPADES][-1]
 
-        def _rule_high_except_spades(suits):
+        def _pass_high_except_spades(suits):
             # Calculate a nominal score for each suit
             scores = list(filter(lambda x: x[1] != SPADES, [(self._score(suit), i) for i, suit in enumerate(suits)]))
             scores.sort()
@@ -59,9 +59,9 @@ class AIPlayer(Player):
             return suits[i][-1]
 
         def _rules():
-            yield _rule_queen_spades
-            yield _rule_high_spades
-            yield _rule_high_except_spades
+            yield _pass_queen_spades
+            yield _pass_high_spades
+            yield _pass_high_except_spades
 
         ret = []
 
@@ -114,15 +114,23 @@ class AIPlayer(Player):
         cards_received,
         direction,
     ):
-        def _play_highest_club(suits, playable, cards_in_turn):
+        def _play_first_turn_highest_club(suits, playable, cards_in_turn):
             # Play the highest club
             if len(suits[CLUBS]):
                 return suits[CLUBS][-1]
 
-        def _rules_first_turn():
-            yield _play_highest_club
+        def _play_first_turn_highest_card(suits,playable,cards_in_turn):
+            # Play the highest card from the highest scoring suit
+            scores = [(self._score(suit), i) for i, suit in enumerate(suits)]
+            scores.sort()
+            max_i = scores[-1][1]
+            return suits[max_i][-1]
 
-        def _play_same_suit(suits, playable, cards_in_turn, lead_suit):
+        def _rules_first_turn():
+            yield _play_first_turn_highest_club
+            yield _play_first_turn_highest_card
+
+        def _play_same_suit_queen_spades(suits, playable, cards_in_turn, lead_suit):
             max_card = max(list(filter(lambda x: in_suit(x, lead_suit), cards_in_turn)))
 
             if lead_suit == SPADES:
@@ -130,27 +138,40 @@ class AIPlayer(Player):
                 if CARD_QS in playable and max_card > CARD_QS:
                     return CARD_QS
 
+        def _play_same_suit_spades(suits, playable, cards_in_turn, lead_suit):
+            max_card = max(list(filter(lambda x: in_suit(x, lead_suit), cards_in_turn)))
+
+            if lead_suit == SPADES:
+                # If we have the Queen of Spades then play the King or Ace if possible
+                if CARD_QS in playable:
+                    if len(list(filter(lambda x:x>CARD_QS,suits[SPADES]))) >= 1:
+                        return suits[SPADES][-1]
+
                 # If we are not the last player to lay a card then don't play above the Queen of Spades
                 if len(cards_in_turn) < 3:
-                    losing = self._highest(suits[lead_suit], CARD_QS)
-                    if losing is not None:
+                    card = self._highest(suits[SPADES], CARD_QS)
+                    if card is not None:
                         # Play the highest card possible under the Queen of Spades
-                        return losing
+                        return card
 
                 # If we are the last player to lay a card or don't have any losing cards
-                ret = suits[lead_suit][-1]
+                ret = suits[SPADES][-1]
                 if ret == CARD_QS:
                     # Don't play the queen of spades if possible
                     if len(suits[SPADES]) > 1:
                         return suits[SPADES][-2]
 
+        def _play_same_suit_except_spades(suits, playable, cards_in_turn, lead_suit):
+            max_card = max(list(filter(lambda x: in_suit(x, lead_suit), cards_in_turn)))
+
             # If we are not the last player to lay a card then try to lose the hand
             if len(cards_in_turn) < 3:
+                # TODO: Play a higher card if we are in the beginning of the round and have relatively few cards of this suit
                 # Try to lose if possible
-                losing = self._highest(suits[lead_suit], max_card)
-                if losing is not None:
+                card = self._highest(suits[lead_suit], max_card)
+                if card is not None:
                     # Play the highest losing card possible
-                    return losing
+                    return card
                 # Play the lowest card we have
                 return suits[lead_suit][0]
 
@@ -158,7 +179,9 @@ class AIPlayer(Player):
             return suits[lead_suit][-1]
 
         def _rules_play_same_suit():
-            yield _play_same_suit
+            yield _play_same_suit_queen_spades
+            yield _play_same_suit_spades
+            yield _play_same_suit_except_spades
 
         def _play_lead_card(suits, playable):
             # If we have the queen of spades and other cards that are playable
@@ -170,10 +193,12 @@ class AIPlayer(Player):
                 scores.sort()
                 max_i = scores[-1][1]
                 return suits[max_i][-1]
-            lower = list(filter(lambda x: x < CARD_QS, suits[SPADES]))
-            if len(lower) > 1:
-                return lower[-1]
+            # Play the highest Spade less than the Queen of Spades
+            card = self._highest(suits[SPADES], CARD_QS)
+            if card is not None:
+                return card
             # Play the lowest card from the lowest scoring suit
+            # TODO: Need to 'score' suits based on cards remaining!
             scores = list(filter(lambda x: x[0] >= 0, [(self._score(suit), i) for i, suit in enumerate(suits)]))
             scores.sort()
             min_i = scores[0][1]
