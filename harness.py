@@ -122,7 +122,7 @@ while True:
         if direction != 3:
             for i, player in enumerate(players):
                 # Player: pass_cards
-                cards = set(player.pass_cards(sorted(list(hands[i])), direction))
+                cards = set(player.pass_cards(set(hands[i]), direction))
                 # print(f'player: {player} cards_passed: {cards} from: {hands[i]}')
                 if len(cards) != 3:
                     print(f"ERROR: player {player} passed {len(cards)} cards instead of 3")
@@ -194,12 +194,12 @@ while True:
                     turn,
                     lead_suit,
                     cards_in_turn,
-                    sorted(list(hands[p])),
+                    set(hands[p]),
                     playable,
                     shift(points_round, p),
                     shift(points_game, p),
                     [((x - p) % NUM_PLAYERS, y) for x, y, _ in turns_played],
-                    cards_remaining - hands[p],
+                    cards_remaining,
                     cards_dealt[p],
                     cards_passed[p],
                     cards_received[p],
