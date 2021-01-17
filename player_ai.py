@@ -34,10 +34,6 @@ class AIPlayer(Player):
         self.rounds = []
 
     @classmethod
-    def _suits(cls, cards):
-        return [sorted(list(filter(lambda x: in_suit(x, s), cards))) for s in range(SUITS_IN_DECK)]
-
-    @classmethod
     def _current_winner(cls, cards_in_turn):
         if len(cards_in_turn) < 1:
             return None
@@ -63,12 +59,14 @@ class AIPlayer(Player):
     #
     def pass_cards(self, cards_dealt, direction):
 
+        print(serialize(cards_dealt))
+
         ret = []
 
         for i in range(3):
             for rule in Rules._funcs(self.rules_pass):
                 # Separate the cards into suits
-                suits = self._suits(cards_dealt)
+                suits = split_into_suits(cards_dealt)
                 # Run through the rules..
                 card = rule(suits)
                 if card is not None:
@@ -117,12 +115,12 @@ class AIPlayer(Player):
             return playable[0]
 
         # Separate the cards into suits and score each one
-        suits = self._suits(playable)
-        suits_avail = self._suits(cards_remaining)
+        suits = split_into_suits(playable)
+        suits_avail = split_into_suits(cards_remaining)
 
         # Determine facts about cards in each suit:
         # Are there any cards left in play for each suit?
-        suits_remaining = self._suits(cards_remaining - set(hand) - set(cards_in_turn))
+        suits_remaining = split_into_suits(cards_remaining - set(hand) - set(cards_in_turn))
         # Are any of the remaining players out of cards from the lead suit?
         suits_depleted = self._suits_depleted(turns_played)
 

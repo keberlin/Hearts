@@ -78,7 +78,7 @@ NUM_CARDS = len(DECK) // NUM_PLAYERS
 STATS_JSON_FILE = "stats.json"
 STATS_RESULTS_FILE = "stats.txt"
 
-historic_statistics = {}
+historic_statistics = {"players": {}}
 
 if os.path.isfile(STATS_JSON_FILE):
     with open(STATS_JSON_FILE, "r") as f:

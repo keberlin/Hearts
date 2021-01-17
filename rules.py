@@ -43,13 +43,19 @@ class Rules:
 
     @classmethod
     def _pass_queen_spades(cls, suits):
+        # Pass the Queen of Spades
+        if CARD_QS in suits[SPADES]:
+            return CARD_QS
+
+    @classmethod
+    def _pass_queen_spades_if_less_than_4_spades(cls, suits):
         # Pass the Queen of Spades if we have less than 4 Spades
         if CARD_QS in suits[SPADES] and len(suits[SPADES]) < 4:
             return CARD_QS
 
     @classmethod
-    def _pass_high_spades(cls, suits):
-        # If we have no lower Spades then ditch the high ones, Ace or King
+    def _pass_high_spades_if_no_lower(cls, suits):
+        # If we have no lower Spades then ditch the high ones, Ace, King or Queen
         lower = list(filter(lambda x: x < CARD_QS, suits[SPADES]))
         if len(lower) == 0 and len(suits[SPADES]):
             return suits[SPADES][-1]
@@ -57,14 +63,21 @@ class Rules:
     @classmethod
     def _pass_high_except_spades(cls, suits):
         # Calculate a nominal score for each suit
-        scores = list(filter(lambda x: x[1] != SPADES, [(cls._score(suit), i) for i, suit in enumerate(suits)]))
-        scores.sort()
-        score, i = scores[-1]
-        return suits[i][-1]
+        scores = [(cls._score(suit), i) for i, suit in filter(lambda x: x[0] != SPADES, enumerate(suits))]
+        if scores:
+            scores.sort(reverse=True)
+            _, i = scores[0]
+            return suits[i][-1]
 
-    # TODO: Rule to pass 3 card suits
-    # TODO: Rule to pass 2 card suits
-    # TODO: Rule to pass single card suits
+    @classmethod
+    def _pass_smallest_suit_except_spades(cls, suits):
+        lengths = list(
+            filter(lambda x: x[0], [(len(suit), i) for i, suit in filter(lambda x: x[0] != SPADES, enumerate(suits))])
+        )
+        if lengths:
+            lengths.sort()
+            _, i = lengths[0]
+            return suits[i][-1]
 
     #
     # List of play first turn rules

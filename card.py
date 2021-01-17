@@ -36,6 +36,10 @@ def serialize(v):
 
 
 def deserialize(nm):
+    if type(nm) is list:
+        return list(map(lambda x: deserialize(x), nm))
+    if type(nm) is set:
+        return deserialize(list(nm))
     return NM_SUITS.index(nm[1]) * CARDS_IN_SUIT + NM_VALUES.index(nm[0])
 
 
@@ -43,6 +47,10 @@ CARD_2C = deserialize("2C")
 CARD_QS = deserialize("QS")
 CARD_KS = deserialize("KS")
 CARD_AS = deserialize("AS")
+
+
+def split_into_suits(cards):
+    return [sorted(list(filter(lambda x: in_suit(x, s), cards))) for s in range(SUITS_IN_DECK)]
 
 
 def calc_points(cards):
