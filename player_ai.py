@@ -1,89 +1,92 @@
 import random
-from card import *
+import re
+
 from player import *
+from rules import *
+
+NUM_PLAYERS = 4
 
 
 class AIPlayer(Player):
     def __init__(self, id):
-        super().__init__(id, "AI %d" % id)
+        def _func_names(prefix):
+            names = list(filter(lambda f: re.match(prefix, f), dir(Rules)))
+            names = random.sample(names, random.randint(1, len(names)))
+            random.shuffle(names)
+            return names
+
+        # Get a list of supported rules for passing and playing cards
+        self.rules_pass = _func_names("_pass")
+        self.rules_play_first_turn = _func_names("_play_first_turn")
+        self.rules_play_same_suit = _func_names("_play_same_suit")
+        self.rules_play_lead_card = _func_names("_play_lead_card")
+        self.rules_discard = _func_names("_discard")
+        rules = (
+            self.rules_pass
+            + self.rules_play_first_turn
+            + self.rules_play_same_suit
+            + self.rules_play_lead_card
+            + self.rules_discard
+        )
+        funcs = ",".join(rules)
+        super().__init__(id, f"AI: {funcs}")
+
         self.rounds = []
 
-    def _score(self, cards, avail=[v for v in range(CARDS_IN_SUIT)]):
-        if not cards:
-            return -1
-        # Calculate a nominal score for a set of cards in one suit
-        score = 0
-        a = 0
-        l = len(avail) - len(cards)  # The more cards we have the lower the score
-        for i, card in enumerate(cards):
-            c, s = decode(card)
-            p, _ = decode(avail[i])
-            a += c - p  # Keep an accumulation of card vs position
-            score += a * l / (i + 1)  # Reduce the score the further into the list of cards we are
-        return score / len(cards)
+    @classmethod
+    def _suits(cls, cards):
+        return [sorted(list(filter(lambda x: in_suit(x, s), cards))) for s in range(SUITS_IN_DECK)]
 
-    def _min_index(self, scores, counts):
-        min_score = None
-        for i, score in enumerate(scores):
-            if not counts[i]:
-                continue
-            if not min_score or score < min_score:
-                min_score = score
-                min_i = i
-        return min_i
+    @classmethod
+    def _current_winner(cls, cards_in_turn):
+        if len(cards_in_turn) < 1:
+            return None
+        _, lead_suit = decode(cards_in_turn[0])
+        max_card = max(list(filter(lambda x: in_suit(x, lead_suit), cards_in_turn)))
+        return cards_in_turn.index(max_card)
 
-    def _highest(self, cards, wrt):
-        highest = None
-        for card in cards:
-            if card >= wrt:
-                break
-            highest = card
-        return highest
+    @classmethod
+    def _suits_depleted(cls, turns_played):
+        suits_depleted = [[False] * SUITS_IN_DECK] * NUM_PLAYERS
+        for lead, cards_played in turns_played:
+            for i, card in enumerate(cards_played):
+                _, s = decode(card)
+                if i == 0:
+                    lead_suit = s
+                elif s != lead_suit:
+                    suits_depleted[(lead - i) % NUM_PLAYERS][s] = True
+        # TODO: If a player plays a Heart card before Hearts have broken then he must be out of the other suits
+        return suits_depleted
 
+    #
+    # Game contract for passing cards
+    #
     def pass_cards(self, cards_dealt, direction):
-        def _pass_queen_spades(suits):
-            # Pass the Queen of Spades if we have less than 4 Spades
-            if CARD_QS in suits[SPADES] and len(suits[SPADES]) < 4:
-                return CARD_QS
-
-        def _pass_high_spades(suits):
-            # If we have no lower spades then ditch the high ones if less than 4 Spades
-            lower = list(filter(lambda x: x < CARD_QS, suits[SPADES]))
-            if len(lower) == 0 and 1 < len(suits[SPADES]) < 4:
-                return suits[SPADES][-1]
-
-        def _pass_high_except_spades(suits):
-            # Calculate a nominal score for each suit
-            scores = list(filter(lambda x: x[1] != SPADES, [(self._score(suit), i) for i, suit in enumerate(suits)]))
-            scores.sort()
-            score, i = scores[-1]
-            return suits[i][-1]
-
-        def _rules():
-            yield _pass_queen_spades
-            yield _pass_high_spades
-            yield _pass_high_except_spades
 
         ret = []
 
-        while len(ret) < 3:
-            for rule in _rules():
+        for i in range(3):
+            for rule in Rules._funcs(self.rules_pass):
                 # Separate the cards into suits
-                suits = [sorted(list(filter(lambda x: in_suit(x, s), cards_dealt))) for s in range(SUITS_IN_DECK)]
+                suits = self._suits(cards_dealt)
                 # Run through the rules..
                 card = rule(suits)
                 if card is not None:
                     ret.append(card)
                     cards_dealt.remove(card)
+                    break
 
-        # Pad out with random selection if needbe
+        # Pad out with random selection as a last resort
         if len(ret) < 3:
-            ret.append(random.sample(cards_dealt, 3 - len(ret)))
+            ret.extend(random.sample(cards_dealt, 3 - len(ret)))
 
         # print("pass_cards:", serialize(ret))
 
         return ret
 
+    #
+    # Game contract for playing a turn
+    #
     def play_turn(
         self,
         turn,
@@ -100,156 +103,81 @@ class AIPlayer(Player):
         cards_received,
         direction,
     ):
-        def _play_first_turn_highest_club(suits, suits_avail, playable, cards_in_turn):
-            # Play the highest club
-            if len(suits[CLUBS]):
-                return suits[CLUBS][-1]
-
-        def _play_first_turn_highest_card(suits, suits_avail, playable, cards_in_turn):
-            # Play the highest card from the highest scoring suit
-            scores = [(self._score(s[0], s[1]), i) for i, s in enumerate(zip(suits, suits_avail))]
-            scores.sort()
-            max_i = scores[-1][1]
-            return suits[max_i][-1]
-
-        def _rules_first_turn():
-            yield _play_first_turn_highest_club
-            yield _play_first_turn_highest_card
-
-        def _play_same_suit_queen_spades(suits, suits_avail, playable, cards_in_turn, lead_suit):
-            max_card = max(list(filter(lambda x: in_suit(x, lead_suit), cards_in_turn)))
-
-            if lead_suit == SPADES:
-                # If we're playing Spades then try to get rid of the Queen
-                if CARD_QS in playable and max_card > CARD_QS:
-                    return CARD_QS
-
-        def _play_same_suit_spades(suits, suits_avail, playable, cards_in_turn, lead_suit):
-            if lead_suit == SPADES:
-                # If we have the Queen of Spades then play the King or Ace if possible
-                if CARD_QS in playable:
-                    if len(list(filter(lambda x: x > CARD_QS, suits[SPADES]))) >= 1:
-                        return suits[SPADES][-1]
-
-                # If we are not the last player to lay a card then don't play above the Queen of Spades
-                if len(cards_in_turn) < 3:
-                    card = self._highest(suits[SPADES], CARD_QS)
-                    if card is not None:
-                        # Play the highest card possible under the Queen of Spades
-                        return card
-
-                # If we are the last player to lay a card or don't have any losing cards
-                ret = suits[SPADES][-1]
-                if ret == CARD_QS:
-                    # Don't play the queen of spades if possible
-                    if len(suits[SPADES]) > 1:
-                        return suits[SPADES][-2]
-
-        def _play_same_suit_except_spades(suits, suits_avail, playable, cards_in_turn, lead_suit):
-            max_card = max(list(filter(lambda x: in_suit(x, lead_suit), cards_in_turn)))
-
-            # If we are not the last player to lay a card then try to lose the hand
-            if len(cards_in_turn) < 3:
-                # TODO: Play a higher card if we are in the beginning of the round and have relatively few cards of this suit
-                # Try to lose if possible
-                card = self._highest(suits[lead_suit], max_card)
-                if card is not None:
-                    # Play the highest losing card possible
-                    return card
-                # Play the lowest card we have
-                return suits[lead_suit][0]
-
-            # If we are the last player to lay a card then play the highest possible
-            return suits[lead_suit][-1]
-
-        def _rules_play_same_suit():
-            yield _play_same_suit_queen_spades
-            yield _play_same_suit_spades
-            yield _play_same_suit_except_spades
-
-        def _play_lead_card(suits, suits_avail, playable):
-            # If we have the queen of spades and other cards that are playable
-            if CARD_QS in playable and (len(suits[CLUBS]) or len(suits[DIAMONDS]) or len(suits[HEARTS])):
-                # Play the highest card from the highest scoring suit except spades
-                scores = list(
-                    filter(
-                        lambda x: x[1] != SPADES,
-                        [(self._score(s[0], s[1]), i) for i, s in enumerate(zip(suits, suits_avail))],
-                    )
-                )
-                scores.sort()
-                max_i = scores[-1][1]
-                return suits[max_i][-1]
-            # Play the highest Spade less than the Queen of Spades
-            card = self._highest(suits[SPADES], CARD_QS)
-            if card is not None:
-                return card
-            # Play the lowest card from the lowest scoring suit
-            # TODO: Need to 'score' suits based on cards remaining!
-            scores = list(
-                filter(
-                    lambda x: x[0] >= 0, [(self._score(s[0], s[1]), i) for i, s in enumerate(zip(suits, suits_avail))]
-                )
-            )
-            scores.sort()
-            min_i = scores[0][1]
-            return suits[min_i][0]
-
-        def _rules_play_lead_card():
-            yield _play_lead_card
-
-        def _discard_queen_spades(suits, suits_avail, playable, cards_in_turn, lead_suit):
-            if CARD_QS in playable:
-                return CARD_QS
-
-        def _discard_highest(suits, suits_avail, playable, cards_in_turn, lead_suit):
-            # Play the highest card from the highest scoring suit
-            scores = list(
-                filter(
-                    lambda x: x[0] >= 0, [(self._score(s[0], s[1]), i) for i, s in enumerate(zip(suits, suits_avail))]
-                )
-            )
-            scores.sort()
-            max_i = scores[-1][1]
-            return suits[max_i][-1]
-
-        def _rules_discard():
-            yield _discard_queen_spades
-            yield _discard_highest
+        FACT_HEARTS_BROKEN = 0
+        FACT_HEARTS_IN_THIS_TURN = 1
+        FACT_QS_ALREADY_PLAYED = 2
+        FACT_QS_IN_THIS_TURN = 3
+        FACT_STILL_HAVE_QS = 4
+        FACT_REMAINING_PLAYER_WITH_QS = 5
+        FACT_POSSIBLE_SHOOT_THE_MOON = 6
+        NUM_OF_FACTS = 7
 
         # If only one card is playable then Hobson's choice
         if len(playable) == 1:
             return playable[0]
 
-        # Separate the cards into suits and counts of cards in each suit
-        suits = [sorted(list(filter(lambda x: in_suit(x, s), playable))) for s in range(SUITS_IN_DECK)]
-        suits_avail = [sorted(list(filter(lambda x: in_suit(x, s), cards_remaining))) for s in range(SUITS_IN_DECK)]
+        # Separate the cards into suits and score each one
+        suits = self._suits(playable)
+        suits_avail = self._suits(cards_remaining)
+
+        # Determine facts about cards in each suit:
+        # Are there any cards left in play for each suit?
+        suits_remaining = self._suits(cards_remaining - set(hand) - set(cards_in_turn))
+        # Are any of the remaining players out of cards from the lead suit?
+        suits_depleted = self._suits_depleted(turns_played)
+
+        # Determine facts about this round:
+        facts = [False] * NUM_OF_FACTS
+        # Has hearts been broken? Ie have any Hearts been played in previous turns.
+        facts[FACT_HEARTS_BROKEN] = len(list(filter(lambda x: in_suit(x, HEARTS), set(DECK) - cards_remaining))) > 0
+        # Have any Hearts been played in this turn?
+        facts[FACT_HEARTS_IN_THIS_TURN] = len(list(filter(lambda x: in_suit(x, HEARTS), cards_in_turn))) > 0
+        # Has the Queen of Spades been played in previous turns?
+        facts[FACT_QS_ALREADY_PLAYED] = CARD_QS in (set(DECK) - (cards_remaining | set(cards_in_turn)))
+        # Has the Queen of Spades been played in this turn?
+        facts[FACT_QS_IN_THIS_TURN] = CARD_QS in cards_in_turn
+        # Do we still hold the Queen of Spades?
+        facts[FACT_STILL_HAVE_QS] = CARD_QS in hand
+        # Do any of the remaining players have the Queen of Spades?
+        # Ie it's not been played yet and we passed it to a player or we know that only one player has Spades left and that player is yet to play
+        passed_to = 1 if direction == 0 else 3 if direction == 1 else 2 if direction == 2 else None
+        facts[FACT_REMAINING_PLAYER_WITH_QS] = (
+            not facts[FACT_QS_ALREADY_PLAYED] and not facts[FACT_QS_IN_THIS_TURN]
+        ) and (cards_passed is not None and CARD_QS in cards_passed and len(cards_in_turn) <= 3 - passed_to)
+        # Is there a chance of shooting the moon?
+        # Ie only one player with points this round and is currently winning this hand with points.
+        current_winner = self._current_winner(cards_in_turn)
+        facts[FACT_POSSIBLE_SHOOT_THE_MOON] = (
+            len(list(filter(None, points_round))) == 1
+            and (current_winner and points_round[current_winner])
+            and (facts[FACT_HEARTS_IN_THIS_TURN] or facts[FACT_QS_IN_THIS_TURN])
+        )
 
         # print('clubs:',serialize(suits[CLUBS]),'diamonds:',serialize(suits[DIAMONDS]),'spades:',serialize(suits[SPADES]),'hearts:',serialize(suits[HEARTS]),'counts:',counts)
 
-        # If it's the first card to be played
+        # If it's the first turn then choose a card bearing in mind we can't receive any points
         if turn == 0:
-            for rule in _rules_first_turn():
+            for rule in Rules._funcs(self.rules_play_first_turn):
                 ret = rule(suits, suits_avail, playable, cards_in_turn)
                 if ret is not None:
                     return ret
 
-        # If we have cards of the lead suit we need to choose one of the same suit
+        # If we have cards of the lead suit we need to choose one of them
         if lead_suit is not None and len(suits[lead_suit]):
-            for rule in _rules_play_same_suit():
+            for rule in Rules._funcs(self.rules_play_same_suit):
                 ret = rule(suits, suits_avail, playable, cards_in_turn, lead_suit)
                 if ret is not None:
                     return ret
 
-        # If we are starting this hand and the first to play a card
+        # If we are starting this hand we need to choose a card to play
         if lead_suit is None:
-            for rule in _rules_play_lead_card():
+            for rule in Rules._funcs(self.rules_play_lead_card):
                 ret = rule(suits, suits_avail, playable)
                 if ret is not None:
                     return ret
 
-        # We need to throw away a card
-        for rule in _rules_discard():
+        # If we have no cards in the lead suit then we need to discard a card
+        for rule in Rules._funcs(self.rules_discard):
             ret = rule(suits, suits_avail, playable, cards_in_turn, lead_suit)
             if ret is not None:
                 return ret
@@ -257,9 +185,14 @@ class AIPlayer(Player):
         # Play a random card as a last resort
         return random.choice(playable)
 
+    #
+    # Game contract offering analysis of a played game
+    #
     def played_game(self, points_game, rounds_played):
         if min(points_game) == points_game[0]:
             return
+
+        return
 
         # We didn't come first!
         for turns_played, cards_dealt, cards_passed, cards_received, direction in rounds_played:

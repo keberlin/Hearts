@@ -1,5 +1,8 @@
 import pytest
-from player_ai import AIPlayer
+
+from rules import Rules
+
+#pytest_plugins = ["tests.fixtures.player"]
 
 CARD_2 = 0
 CARD_3 = 1
@@ -26,8 +29,7 @@ CARD_A = 12
     ],
 )
 def test_score(cards, score):
-    player = AIPlayer(1)
-    ret = player._score(cards)
+    ret = Rules._score(cards)
     assert ret == score
 
 
@@ -45,6 +47,5 @@ def test_score(cards, score):
     ],
 )
 def test_score(cards, avail, score):
-    player = AIPlayer(1)
-    ret = player._score(cards, avail)
+    ret = Rules._score(cards, avail)
     assert ret == score

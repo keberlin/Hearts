@@ -47,18 +47,22 @@
 # Game over - scores, order and placement of each 4 players
 
 import argparse
+import json
+import os
 import random
+
 from card import *
-from player_random import RandomPlayer
 from player_ai import AIPlayer
+from player_random import RandomPlayer
 
 parser = argparse.ArgumentParser(description="Hearts card game harness.")
 parser.add_argument(
     "-f", dest="force_lose", action="store_true", default=False, help="Play until AI player loses", required=False
 )
+parser.add_argument("-g", dest="games", type=int, nargs=1, default=1, help="Number of games to play", required=False)
 args = parser.parse_args()
 
-NUM_GAMES = 1
+games = args.games[0]
 
 ROUND_LOGFILE = "rounds.log"
 
@@ -71,16 +75,29 @@ def shift(a, i):
 NUM_PLAYERS = 4
 NUM_CARDS = len(DECK) // NUM_PLAYERS
 
-wins = [0] * NUM_PLAYERS
+STATS_JSON_FILE = "stats.json"
+STATS_RESULTS_FILE = "stats.txt"
+
+historic_statistics = {}
+
+if os.path.isfile(STATS_JSON_FILE):
+    with open(STATS_JSON_FILE, "r") as f:
+        historic_statistics = json.loads(f.read())
 
 num_games = 0
 
 while True:
 
-    if not (args.force_lose or num_games < NUM_GAMES):
+    if not (args.force_lose or num_games < games):
         break
 
-    players = [RandomPlayer(i) for i in range(3)] + [AIPlayer(3)]
+    players = [AIPlayer(i) for i in range(4)]
+
+    for player in players:
+        username = str(player)
+        if not username in historic_statistics["players"]:
+            historic_statistics["players"][username] = [0, 0]
+        historic_statistics["players"][username][0] += 1
 
     points_game = [0] * NUM_PLAYERS
 
@@ -332,13 +349,24 @@ while True:
         if points_game[i] == max_points:
             losers.append(i)
 
-    # Keep track of how many wins each player has
+    # Keep track of how many historic_statistics each player has
     for i in winners:
-        wins[i] += 1
+        username = str(players[i])
+        historic_statistics["players"][username][1] += 1
 
     if args.force_lose and 3 in losers:
         break
 
     num_games += 1
 
-print("wins %:", [x * 100 // num_games for x in wins])
+historic_statistics["games_played"] += num_games
+historic_statistics["number_of_players"] = len(historic_statistics["players"])
+
+with open(STATS_JSON_FILE, "w") as f:
+    f.write(json.dumps(historic_statistics))
+
+with open(STATS_RESULTS_FILE, "w") as f:
+    stats = [(k, v[0], v[1], v[1] * 100 // v[0]) for k, v in historic_statistics["players"].items()]
+    stats.sort(key=lambda x: x[3], reverse=False)
+    for v in stats:
+        f.write(f"username: {v[0]}, played: {v[1]}, won: {v[2]} ({v[3]}%)\n")
