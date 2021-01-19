@@ -363,10 +363,14 @@ historic_statistics["games_played"] += num_games
 historic_statistics["number_of_players"] = len(historic_statistics["players"])
 
 with open(STATS_JSON_FILE, "w") as f:
-    f.write(json.dumps(historic_statistics))
+    f.write(json.dumps(historic_statistics, indent=4))
 
 with open(STATS_RESULTS_FILE, "w") as f:
-    stats = [(k, v[0], v[1], v[1] * 100 // v[0]) for k, v in historic_statistics["players"].items()]
+    # Only include usernames who have played 100 or more games
+    stats = [
+        (k, v[0], v[1], v[1] * 100 // v[0])
+        for k, v in filter(lambda x: x[1][0] >= 100, historic_statistics["players"].items())
+    ]
     stats.sort(key=lambda x: x[3], reverse=False)
     for v in stats:
         f.write(f"username: {v[0]}, played: {v[1]}, won: {v[2]} ({v[3]}%)\n")

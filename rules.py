@@ -48,9 +48,9 @@ class Rules:
             return CARD_QS
 
     @classmethod
-    def _pass_queen_spades_if_less_than_4_spades(cls, suits):
+    def _pass_queen_spades_max_3_spades(cls, suits):
         # Pass the Queen of Spades if we have less than 4 Spades
-        if CARD_QS in suits[SPADES] and len(suits[SPADES]) < 4:
+        if CARD_QS in suits[SPADES] and len(suits[SPADES]) <= 3:
             return CARD_QS
 
     @classmethod
@@ -63,7 +63,7 @@ class Rules:
     @classmethod
     def _pass_high_except_spades(cls, suits):
         # Calculate a nominal score for each suit
-        scores = [(cls._score(suit), i) for i, suit in filter(lambda x: x[0] != SPADES, enumerate(suits))]
+        scores = [(cls._score(suit), i) for i, suit in filter(lambda x: x[0] != SPADES and len(x[1]), enumerate(suits))]
         if scores:
             scores.sort(reverse=True)
             _, i = scores[0]
@@ -71,12 +71,26 @@ class Rules:
 
     @classmethod
     def _pass_smallest_suit_except_spades(cls, suits):
-        lengths = list(
-            filter(lambda x: x[0], [(len(suit), i) for i, suit in filter(lambda x: x[0] != SPADES, enumerate(suits))])
-        )
+        # Calculate a nominal score for each suit
+        lengths = [
+            (len(suit), cls._score(suit), i)
+            for i, suit in filter(lambda x: x[0] != SPADES and len(x[1]), enumerate(suits))
+        ]
         if lengths:
-            lengths.sort()
-            _, i = lengths[0]
+            lengths.sort(key=lambda x: (x[0], -x[1]))
+            _, _, i = lengths[0]
+            return suits[i][-1]
+
+    @classmethod
+    def _pass_suits_max_3_except_spades(cls, suits):
+        # Calculate a nominal score for each suit
+        scores = [
+            (cls._score(suit), i)
+            for i, suit in filter(lambda x: x[0] != SPADES and 1 <= len(x[1]) <= 3, enumerate(suits))
+        ]
+        if scores:
+            scores.sort(reverse=True)
+            _, i = scores[0]
             return suits[i][-1]
 
     #
