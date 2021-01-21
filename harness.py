@@ -78,7 +78,7 @@ NUM_CARDS = len(DECK) // NUM_PLAYERS
 STATS_JSON_FILE = "stats.json"
 STATS_RESULTS_FILE = "stats.txt"
 
-historic_statistics = {"players": {}}
+historic_statistics = {"players": {},'games_played':0}
 
 if os.path.isfile(STATS_JSON_FILE):
     with open(STATS_JSON_FILE, "r") as f:
@@ -366,11 +366,11 @@ with open(STATS_JSON_FILE, "w") as f:
     f.write(json.dumps(historic_statistics, indent=4))
 
 with open(STATS_RESULTS_FILE, "w") as f:
-    # Only include usernames who have played 100 or more games
+    # Only include usernames who have played 200 or more games
     stats = [
-        (k, v[0], v[1], v[1] * 100 // v[0])
-        for k, v in filter(lambda x: x[1][0] >= 100, historic_statistics["players"].items())
+        (k, v[0], v[1], v[1] * 100 / v[0])
+        for k, v in filter(lambda x: x[1][0] >= 200, historic_statistics["players"].items())
     ]
     stats.sort(key=lambda x: x[3], reverse=False)
     for v in stats:
-        f.write(f"username: {v[0]}, played: {v[1]}, won: {v[2]} ({v[3]}%)\n")
+        f.write(f"username: {v[0]}, played: {v[1]}, won: {v[2]} ({v[3]:.2f}%)\n")

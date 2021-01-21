@@ -59,7 +59,7 @@ class AIPlayer(Player):
     #
     def pass_cards(self, cards_dealt, direction):
 
-        print(serialize(cards_dealt))
+        #print(serialize(cards_dealt))
 
         ret = []
 
