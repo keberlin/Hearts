@@ -54,7 +54,7 @@ class Rules:
             return CARD_QS
 
     @classmethod
-    def _pass_high_spades_if_no_lower(cls, suits):
+    def _pass_high_spades_no_lower(cls, suits):
         # If we have no lower Spades then ditch the high ones, Ace, King or Queen
         lower = list(filter(lambda x: x < CARD_QS, suits[SPADES]))
         if len(lower) == 0 and len(suits[SPADES]):
@@ -98,7 +98,7 @@ class Rules:
     #
 
     @classmethod
-    def _play_first_turn_highest_card(cls, suits, suits_avail, playable, cards_in_turn):
+    def _play_1st_turn_highest_card(cls, suits, suits_avail, playable, cards_in_turn):
         # Play the highest card from the highest scoring suit
         scores = [(cls._score(s[0], s[1]), i) for i, s in enumerate(zip(suits, suits_avail))]
         scores.sort()
