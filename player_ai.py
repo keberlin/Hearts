@@ -17,13 +17,13 @@ class AIPlayer(Player):
 
         # Get a list of supported rules for passing and playing cards
         self.rules_pass = _func_names("_pass")
-        self.rules_play_first_turn = _func_names("_play_first_turn")
+        self.rules_play_1st_turn = _func_names("_play_1st_turn")
         self.rules_play_same_suit = _func_names("_play_same_suit")
         self.rules_play_lead_card = _func_names("_play_lead_card")
         self.rules_discard = _func_names("_discard")
         rules = (
             self.rules_pass
-            + self.rules_play_first_turn
+            + self.rules_play_1st_turn
             + self.rules_play_same_suit
             + self.rules_play_lead_card
             + self.rules_discard
@@ -59,7 +59,7 @@ class AIPlayer(Player):
     #
     def pass_cards(self, cards_dealt, direction):
 
-        #print(serialize(cards_dealt))
+        print(f"cards_dealt: {serialize(cards_dealt)}")
 
         ret = []
 
@@ -78,7 +78,7 @@ class AIPlayer(Player):
         if len(ret) < 3:
             ret.extend(random.sample(cards_dealt, 3 - len(ret)))
 
-        # print("pass_cards:", serialize(ret))
+        print(f"pass_cards: {serialize(ret)}")
 
         return ret
 
@@ -120,18 +120,18 @@ class AIPlayer(Player):
 
         # Determine facts about cards in each suit:
         # Are there any cards left in play for each suit?
-        suits_remaining = split_into_suits(cards_remaining - set(hand) - set(cards_in_turn))
+        suits_remaining = split_into_suits(set(cards_remaining) - set(hand) - set(cards_in_turn))
         # Are any of the remaining players out of cards from the lead suit?
         suits_depleted = self._suits_depleted(turns_played)
 
         # Determine facts about this round:
         facts = [False] * NUM_OF_FACTS
         # Has hearts been broken? Ie have any Hearts been played in previous turns.
-        facts[FACT_HEARTS_BROKEN] = len(list(filter(lambda x: in_suit(x, HEARTS), set(DECK) - cards_remaining))) > 0
+        facts[FACT_HEARTS_BROKEN] = len(list(filter(lambda x: in_suit(x, HEARTS), set(DECK) - set(cards_remaining)))) > 0
         # Have any Hearts been played in this turn?
         facts[FACT_HEARTS_IN_THIS_TURN] = len(list(filter(lambda x: in_suit(x, HEARTS), cards_in_turn))) > 0
         # Has the Queen of Spades been played in previous turns?
-        facts[FACT_QS_ALREADY_PLAYED] = CARD_QS in (set(DECK) - (cards_remaining | set(cards_in_turn)))
+        facts[FACT_QS_ALREADY_PLAYED] = CARD_QS in (set(DECK) - (set(cards_remaining) | set(cards_in_turn)))
         # Has the Queen of Spades been played in this turn?
         facts[FACT_QS_IN_THIS_TURN] = CARD_QS in cards_in_turn
         # Do we still hold the Queen of Spades?
@@ -155,7 +155,7 @@ class AIPlayer(Player):
 
         # If it's the first turn then choose a card bearing in mind we can't receive any points
         if turn == 0:
-            for rule in Rules._funcs(self.rules_play_first_turn):
+            for rule in Rules._funcs(self.rules_play_1st_turn):
                 ret = rule(suits, suits_avail, playable, cards_in_turn)
                 if ret is not None:
                     return ret

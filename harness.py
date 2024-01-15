@@ -112,7 +112,8 @@ while True:
         #
         # Shuffle the deck
         #
-        deck = DECK.copy()
+        deck = list(DECK)
+        print(f"deck: {deck}")
         random.shuffle(deck)
         # print('deck:',serialize(deck))
 
@@ -123,10 +124,13 @@ while True:
         #
         cards_dealt = [None] * NUM_PLAYERS
         for i, player in enumerate(players):
-            cards_dealt[i] = set(deck[i * NUM_CARDS : (i + 1) * NUM_CARDS])
+            cards_dealt[i] = deck[i * NUM_CARDS : (i + 1) * NUM_CARDS]
+            print(f"cards_dealt: {cards_dealt[i]}")
             # Player: dealt
-            player.dealt(cards_dealt[i])
+            player.dealt(cards_dealt[i].copy())
             hands[i] = cards_dealt[i].copy()
+            print(f"hands: {hands[i]}")
+            assert len(hands[i])==13
 
         # for i,player in enumerate(players):
         #    print(f'player: {player} cards: {serialize(hands[i])}')
@@ -139,25 +143,27 @@ while True:
         if direction != 3:
             for i, player in enumerate(players):
                 # Player: pass_cards
-                cards = set(player.pass_cards(set(hands[i]), direction))
+                cards = player.pass_cards(hands[i].copy(), direction)
                 # print(f'player: {player} cards_passed: {cards} from: {hands[i]}')
                 if len(cards) != 3:
                     print(f"ERROR: player {player} passed {len(cards)} cards instead of 3")
                     exit(1)
-                if not cards.issubset(hands[i]):
+                if not set(cards).issubset(set(hands[i])):
                     print(f"ERROR: player {player} passed {serialize(cards)} which are not in {serialize(hands[i])}")
                     exit(1)
+                for card in cards:
+                    hands[i].remove(card)
                 cards_passed[i] = cards
-                hands[i] -= cards_passed[i]
-                assert not cards_passed[i].issubset(hands[i])
+                assert not set(cards_passed[i]).issubset(set(hands[i]))
 
             adj = -1 if direction == 0 else 1 if direction == 1 else 2
             for i, player in enumerate(players):
                 j = (i + adj) % NUM_PLAYERS
                 cards_received[i] = cards_passed[j]
-                player.receive_cards(cards_received[i])
-                hands[i] |= cards_received[i]
-                assert cards_received[i].issubset(hands[i])
+                player.receive_cards(cards_received[i].copy())
+                for card in cards_received[i]:
+                    hands[i].append(card)
+                assert set(cards_received[i]).issubset(set(hands[i]))
 
         # for i,player in enumerate(players):
         #    print(f'player: {player} cards: {serialize(hands[i])}')
@@ -175,7 +181,7 @@ while True:
         hearts_broken = False
         cards_played = [[] for _ in range(NUM_PLAYERS)]
         turns_played = []
-        cards_remaining = set(DECK)
+        cards_remaining = list(DECK)
         for turn in range(NUM_CARDS):
             # print('lead:', lead)
             lead_suit = None
@@ -211,7 +217,7 @@ while True:
                     turn,
                     lead_suit,
                     cards_in_turn,
-                    set(hands[p]),
+                    hands[p].copy(),
                     playable,
                     shift(points_round, p),
                     shift(points_game, p),
@@ -303,12 +309,15 @@ while True:
         # Log the played cards along with their points
         #
         for i, player in enumerate(players):
-            cards = cards_dealt[i].copy()
+            print(f"cards_dealt: {cards_dealt[i]}, cards_passed: {cards_passed[i]}, cards_received: {cards_received[i]}, cards_played: {cards_played[i]}")
+            cards = cards_dealt[i]
             if cards_passed[i]:
-                cards -= cards_passed[i]
+                for card in cards_passed[i]:
+                    cards.remove(card)
             if cards_received[i]:
-                cards |= cards_received[i]
-            assert cards == set(cards_played[i])
+                for card in cards_received[i]:
+                    cards.append(card)
+            assert sorted(cards) == sorted(cards_played[i])
             line = (
                 sorted(list(cards_dealt[i]))
                 + (sorted(list(cards_passed[i])) if cards_passed[i] else [CARDS_IN_DECK] * 3)
