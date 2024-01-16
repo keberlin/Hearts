@@ -58,9 +58,6 @@ class AIPlayer(Player):
     # Game contract for passing cards
     #
     def pass_cards(self, cards_dealt, direction):
-
-        print(f"cards_dealt: {serialize(cards_dealt)}")
-
         ret = []
 
         for i in range(3):
@@ -77,8 +74,6 @@ class AIPlayer(Player):
         # Pad out with random selection as a last resort
         if len(ret) < 3:
             ret.extend(random.sample(cards_dealt, 3 - len(ret)))
-
-        print(f"pass_cards: {serialize(ret)}")
 
         return ret
 
@@ -127,7 +122,9 @@ class AIPlayer(Player):
         # Determine facts about this round:
         facts = [False] * NUM_OF_FACTS
         # Has hearts been broken? Ie have any Hearts been played in previous turns.
-        facts[FACT_HEARTS_BROKEN] = len(list(filter(lambda x: in_suit(x, HEARTS), set(DECK) - set(cards_remaining)))) > 0
+        facts[FACT_HEARTS_BROKEN] = (
+            len(list(filter(lambda x: in_suit(x, HEARTS), set(DECK) - set(cards_remaining)))) > 0
+        )
         # Have any Hearts been played in this turn?
         facts[FACT_HEARTS_IN_THIS_TURN] = len(list(filter(lambda x: in_suit(x, HEARTS), cards_in_turn))) > 0
         # Has the Queen of Spades been played in previous turns?
@@ -150,8 +147,6 @@ class AIPlayer(Player):
             and (current_winner and points_round[current_winner])
             and (facts[FACT_HEARTS_IN_THIS_TURN] or facts[FACT_QS_IN_THIS_TURN])
         )
-
-        # print('clubs:',serialize(suits[CLUBS]),'diamonds:',serialize(suits[DIAMONDS]),'spades:',serialize(suits[SPADES]),'hearts:',serialize(suits[HEARTS]),'counts:',counts)
 
         # If it's the first turn then choose a card bearing in mind we can't receive any points
         if turn == 0:
@@ -190,8 +185,6 @@ class AIPlayer(Player):
         if min(points_game) == points_game[0]:
             return
 
-        return
-
         # We didn't come first!
         for turns_played, cards_dealt, cards_passed, cards_received, direction in rounds_played:
             cards_played = set(cards_dealt)
@@ -201,7 +194,7 @@ class AIPlayer(Player):
                 cards_played |= set(cards_received)
             cards_played = sorted(list(cards_played))
             print(
-                f"dealt: {serialize(sorted(list(cards_dealt)))}, passed: {serialize(cards_passed)}, received: {serialize(cards_received)}, direction: {direction}, hand played: {serialize(cards_played)}"
+                f"dealt: {serialize(cards_dealt,sort=True)}, passed: {serialize(cards_passed,sort=True)}, received: {serialize(cards_received,sort=True)}, direction: {direction}, hand played: {serialize(cards_played)}"
             )
             for lead, cards, points in turns_played:
                 print(f"lead: {lead} cards: {serialize(cards)}, points: {points[0]}")

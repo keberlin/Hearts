@@ -1,3 +1,21 @@
+import argparse
+import json
+import logging
+import os
+import random
+
+from card import *
+from database import HEARTS_DB_URI, db_init
+from model import PassingModel
+from player_ai import AIPlayer
+from player_random import RandomPlayer
+
+logger = logging.getLogger()
+logging.basicConfig(filename="/var/log/hearts/log", level=logging.DEBUG)
+
+session = db_init(HEARTS_DB_URI)
+
+
 # Get 4 players
 
 # Loop until a player reaches a score of 100..
@@ -46,23 +64,15 @@
 
 # Game over - scores, order and placement of each 4 players
 
-import argparse
-import json
-import os
-import random
-
-from card import *
-from player_ai import AIPlayer
-from player_random import RandomPlayer
 
 parser = argparse.ArgumentParser(description="Hearts card game harness.")
 parser.add_argument(
     "-f", dest="force_lose", action="store_true", default=False, help="Play until AI player loses", required=False
 )
-parser.add_argument("-g", dest="games", type=int, nargs=1, default=1, help="Number of games to play", required=False)
+parser.add_argument("-g", dest="games", type=int, default=1, help="Number of games to play", required=False)
 args = parser.parse_args()
 
-games = args.games[0]
+games = args.games
 
 ROUND_LOGFILE = "rounds.log"
 
@@ -78,7 +88,7 @@ NUM_CARDS = len(DECK) // NUM_PLAYERS
 STATS_JSON_FILE = "stats.json"
 STATS_RESULTS_FILE = "stats.txt"
 
-historic_statistics = {"players": {},'games_played':0}
+historic_statistics = {"players": {}, "games_played": 0}
 
 if os.path.isfile(STATS_JSON_FILE):
     with open(STATS_JSON_FILE, "r") as f:
@@ -113,9 +123,7 @@ while True:
         # Shuffle the deck
         #
         deck = list(DECK)
-        print(f"deck: {deck}")
         random.shuffle(deck)
-        # print('deck:',serialize(deck))
 
         hands = [None] * NUM_PLAYERS
 
@@ -125,15 +133,13 @@ while True:
         cards_dealt = [None] * NUM_PLAYERS
         for i, player in enumerate(players):
             cards_dealt[i] = deck[i * NUM_CARDS : (i + 1) * NUM_CARDS]
-            print(f"cards_dealt: {cards_dealt[i]}")
             # Player: dealt
             player.dealt(cards_dealt[i].copy())
             hands[i] = cards_dealt[i].copy()
-            print(f"hands: {hands[i]}")
-            assert len(hands[i])==13
+            assert len(hands[i]) == NUM_CARDS
 
-        # for i,player in enumerate(players):
-        #    print(f'player: {player} cards: {serialize(hands[i])}')
+        for i, player in enumerate(players):
+            logger.debug(f"cards dealt for player {i} {player}: {serialize(hands[i],sort=True)}")
 
         #
         # Get each player to pass 3 cards
@@ -144,15 +150,16 @@ while True:
             for i, player in enumerate(players):
                 # Player: pass_cards
                 cards = player.pass_cards(hands[i].copy(), direction)
-                # print(f'player: {player} cards_passed: {cards} from: {hands[i]}')
+                logger.debug(f"cards passed from player {i} {player}: {cards}")
                 if len(cards) != 3:
-                    print(f"ERROR: player {player} passed {len(cards)} cards instead of 3")
+                    logger.error(f"ERROR: player {player} passed {len(cards)} cards instead of 3")
                     exit(1)
                 if not set(cards).issubset(set(hands[i])):
-                    print(f"ERROR: player {player} passed {serialize(cards)} which are not in {serialize(hands[i])}")
+                    logger.error(
+                        f"ERROR: player {player} passed {serialize(cards,sort=True)} which are not in {serialize(hands[i],sort=True)}"
+                    )
                     exit(1)
-                for card in cards:
-                    hands[i].remove(card)
+                hands[i] = list(set(hands[i]) - set(cards))
                 cards_passed[i] = cards
                 assert not set(cards_passed[i]).issubset(set(hands[i]))
 
@@ -165,8 +172,8 @@ while True:
                     hands[i].append(card)
                 assert set(cards_received[i]).issubset(set(hands[i]))
 
-        # for i,player in enumerate(players):
-        #    print(f'player: {player} cards: {serialize(hands[i])}')
+        for i, player in enumerate(players):
+            logger.debug(f"cards after passing for player {i} {player}: {serialize(hands[i],sort=True)}")
 
         #
         # Play the round
@@ -183,7 +190,7 @@ while True:
         turns_played = []
         cards_remaining = list(DECK)
         for turn in range(NUM_CARDS):
-            # print('lead:', lead)
+            logger.debug(f"lead: {lead} {players[lead]}")
             lead_suit = None
             cards_in_turn = []
             for j in range(NUM_PLAYERS):
@@ -210,7 +217,7 @@ while True:
                     if not playable:
                         playable = list(filter(lambda x: in_suit(x, HEARTS), hands[p]))
                     if not playable:
-                        print(f"ERROR: no playable cards from {serialize(hands[p])}")
+                        logger.error(f"ERROR: no playable cards from {serialize(hands[p],sort=True)}")
                         exit(1)
                 # Player: play_turn
                 card = player.play_turn(
@@ -229,8 +236,8 @@ while True:
                     direction,
                 )
                 if card not in playable:
-                    print(
-                        f"ERROR: player: {player} played card {serialize(card)} which is not in the playable list of {serialize(playable)}"
+                    logger.error(
+                        f"ERROR: player: {player} played card {serialize(card)} which is not in the playable list of {serialize(playable,sort=True)}"
                     )
                     exit(1)
 
@@ -246,9 +253,9 @@ while True:
                 if j == 0:
                     _, lead_suit = decode(card)
                 if not hearts_broken and in_suit(card, HEARTS):
-                    # print('hearts broken')
+                    logger.debug("hearts broken")
                     hearts_broken = True
-            # print('lead:',lead,'cards_in_turn:',serialize(cards_in_turn))
+            logger.debug(f"lead: {lead} {players[lead]}, cards played in turn {turn}: {serialize(cards_in_turn)}")
 
             # Determine the winner of the hand
             max_c = None
@@ -309,14 +316,11 @@ while True:
         # Log the played cards along with their points
         #
         for i, player in enumerate(players):
-            print(f"cards_dealt: {cards_dealt[i]}, cards_passed: {cards_passed[i]}, cards_received: {cards_received[i]}, cards_played: {cards_played[i]}")
             cards = cards_dealt[i]
             if cards_passed[i]:
-                for card in cards_passed[i]:
-                    cards.remove(card)
+                cards = list(set(cards) - set(cards_passed[i]))
             if cards_received[i]:
-                for card in cards_received[i]:
-                    cards.append(card)
+                cards = list(set(cards) | set(cards_received[i]))
             assert sorted(cards) == sorted(cards_played[i])
             line = (
                 sorted(list(cards_dealt[i]))
@@ -335,7 +339,7 @@ while True:
 
         play = not list(filter(lambda x: x >= 100, points_game))
 
-    print("end of game:", points_game)
+    logger.info(f"end of game: {points_game}")
 
     #
     # Inform each player of the final score

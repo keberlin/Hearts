@@ -22,9 +22,9 @@ NM_VALUES = ["2", "3", "4", "5", "6", "7", "8", "9", "X", "J", "Q", "K", "A"]
 NM_SUITS = ["C", "D", "S", "H"]
 
 
-def serialize(v):
+def serialize(v, sort=False):
     if type(v) is list:
-        return list(map(lambda x: serialize(x), v))
+        return list(map(lambda x: serialize(x), sorted(v) if sort else v))
     if type(v) is set:
         return serialize(list(v))
     if v is None:
@@ -33,6 +33,10 @@ def serialize(v):
         return "--"
     c, s = decode(v)
     return NM_VALUES[c] + NM_SUITS[s]
+
+
+def serializedb(v, sort=False):
+    return "".join(serialize(v, sort))
 
 
 def deserialize(nm):

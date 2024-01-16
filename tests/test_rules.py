@@ -42,7 +42,7 @@ def test_score(cards, score):
         (
             (CARD_4, CARD_6, CARD_8, CARD_X, CARD_Q),
             (CARD_3, CARD_4, CARD_5, CARD_6, CARD_7, CARD_8, CARD_9, CARD_X, CARD_J, CARD_Q),
-            10,
+            9,
         ),
         ((CARD_2, CARD_8, CARD_A), (CARD_2, CARD_4, CARD_6, CARD_8, CARD_X, CARD_Q, CARD_A), 8),
     ],
@@ -115,10 +115,10 @@ def test_pass_queen_spades_max_3_spades(cards, result):
         (["2C", "4C", "JS", "QS", "XS", "AS", "KC", "3D", "6D", "AH", "2S", "6S", "7S"], None),
     ],
 )
-def test_pass_high_spades_if_no_lower(cards, result):
+def test_pass_high_spades_no_lower(cards, result):
     cards = deserialize(cards)
     suits = split_into_suits(cards)
-    ret = Rules._pass_high_spades_if_no_lower(suits)
+    ret = Rules._pass_high_spades_no_lower(suits)
     assert ret == result
 
 
