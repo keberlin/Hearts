@@ -300,6 +300,15 @@ while True:
 
             lead = max_p
 
+        #
+        # Update the passing db table
+        #
+        if direction != 3:
+            for i in range(NUM_PLAYERS):
+                entry = PassingModel(dealt=serializedb(cards_dealt[i],sort=True), passed=serializedb(cards_passed[i],sort=True),points=points_round[i])
+                session.add(entry)
+                session.commit()
+
         # Keep track of all hands played for the whole game
         for i, player in enumerate(players):
             rounds_played[i].append(
@@ -347,6 +356,13 @@ while True:
     for i, player in enumerate(players):
         # Player: played_game
         player.played_game(shift(points_game, i), rounds_played[i])
+
+    def ranking(points_player, points_game):
+        points_game = set(points_game)
+        for i, points in enumerate(points_game):
+            if points_player == points:
+                return i
+        assert False, f"{points_player} is not in {points_game}"
 
     #
     # Determine which player has won

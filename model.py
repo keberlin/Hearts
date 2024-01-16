@@ -9,7 +9,4 @@ class PassingModel(db.Model):
 
     dealt = db.Column("dealt", String(13 * 2), primary_key=True, nullable=False)
     passed = db.Column("passed", String(3 * 2), nullable=False)
-    first = db.Column("first", Integer, nullable=False, default=0)
-    second = db.Column("second", Integer, nullable=False, default=0)
-    third = db.Column("third", Integer, nullable=False, default=0)
-    fourth = db.Column("fourth", Integer, nullable=False, default=0)
+    points = db.Column("points", Integer, nullable=False, default=0)
