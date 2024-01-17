@@ -178,7 +178,7 @@ while True:
         #
         # Play the round
         #
-        points_round = [0] * NUM_PLAYERS
+        points_hand = [0] * NUM_PLAYERS
 
         # Determine which player has the 2 of clubs
         for i in range(NUM_PLAYERS):
@@ -226,7 +226,7 @@ while True:
                     cards_in_turn,
                     hands[p].copy(),
                     playable,
-                    shift(points_round, p),
+                    shift(points_hand, p),
                     shift(points_game, p),
                     [((x - p) % NUM_PLAYERS, y) for x, y, _ in turns_played],
                     cards_remaining,
@@ -288,12 +288,12 @@ while True:
 
             # Calculate the accumulated points for each player
             for i in range(NUM_PLAYERS):
-                points_round[i] += points_in_turn[i]
+                points_hand[i] += points_in_turn[i]
 
             for i, player in enumerate(players):
                 p = (i - lead) % NUM_PLAYERS
                 # Player: played_hand
-                player.played_hand(cards_in_turn, cards_in_turn[p], points_round[i])
+                player.played_hand(cards_in_turn, cards_in_turn[p], points_hand[i])
 
             # Keep track of each round's who led and played cards
             turns_played.append((lead, cards_in_turn, points_in_turn))
@@ -305,7 +305,11 @@ while True:
         #
         if direction != 3:
             for i in range(NUM_PLAYERS):
-                entry = PassingModel(dealt=serializedb(cards_dealt[i],sort=True), passed=serializedb(cards_passed[i],sort=True),points=points_round[i])
+                entry = PassingModel(
+                    dealt=serializedb(cards_dealt[i], sort=True),
+                    passed=serializedb(cards_passed[i], sort=True),
+                    points=-26 if points_hand[i] == 26 else points_hand[i],
+                )
                 session.add(entry)
                 session.commit()
 
@@ -336,14 +340,14 @@ while True:
                 + (sorted(list(cards_passed[i])) if cards_passed[i] else [CARDS_IN_DECK] * 3)
                 + (sorted(list(cards_received[i])) if cards_received[i] else [CARDS_IN_DECK] * 3)
                 + cards_played[i]
-                + [points_round[i]]
+                + [points_hand[i]]
             )
             with open(ROUND_LOGFILE, "ab") as f:
                 f.write(bytes(line))
 
         direction = (direction + 1) % 4
 
-        for i, points in enumerate(points_round):
+        for i, points in enumerate(points_hand):
             points_game[i] += points
 
         play = not list(filter(lambda x: x >= 100, points_game))
