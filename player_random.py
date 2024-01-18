@@ -22,8 +22,8 @@ class RandomPlayer(Player):
         turns_played,
         cards_remaining,
         cards_dealt,
+        direction,
         cards_passed,
         cards_received,
-        direction,
     ):
         return random.choice(playable)

@@ -27,14 +27,14 @@ class Player:
         turns_played,
         cards_remaining,
         cards_dealt,
+        direction,
         cards_passed,
         cards_received,
-        direction,
     ):
         pass
 
     def played_hand(self, cards_in_turn, mine, points_round):
         pass
 
-    def played_game(self, points_game, rounds_played):
+    def played_game(self, points_game, hands_played):
         pass

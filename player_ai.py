@@ -31,8 +31,6 @@ class AIPlayer(Player):
         funcs = ",".join(rules)
         super().__init__(id, f"AI: {funcs}")
 
-        self.rounds = []
-
     @classmethod
     def _current_winner(cls, cards_in_turn):
         if len(cards_in_turn) < 1:
@@ -92,9 +90,9 @@ class AIPlayer(Player):
         turns_played,
         cards_remaining,
         cards_dealt,
+        direction,
         cards_passed,
         cards_received,
-        direction,
     ):
         FACT_HEARTS_BROKEN = 0
         FACT_HEARTS_IN_THIS_TURN = 1
@@ -181,12 +179,14 @@ class AIPlayer(Player):
     #
     # Game contract offering analysis of a played game
     #
-    def played_game(self, points_game, rounds_played):
+    def played_game(self, points_game, hands_played):
         if min(points_game) == points_game[0]:
             return
 
+        return
+
         # We didn't come first!
-        for turns_played, cards_dealt, cards_passed, cards_received, direction in rounds_played:
+        for turns_played, cards_dealt, direction, cards_passed, cards_received in hands_played:
             cards_played = set(cards_dealt)
             if cards_passed:
                 cards_played -= set(cards_passed)

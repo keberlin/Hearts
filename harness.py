@@ -1,3 +1,4 @@
+import copy
 import argparse
 import json
 import logging
@@ -73,7 +74,6 @@ args = parser.parse_args()
 
 games = args.games
 
-ROUND_LOGFILE = "rounds.log"
 
 
 def shift(a, i):
@@ -88,7 +88,143 @@ STATS_JSON_FILE = "stats.json"
 STATS_RESULTS_FILE = "stats.txt"
 
 
-def play_game(game, players, player_ids):
+def play_hand(cards_dealt,direction,cards_passed,cards_received,cards_playing,points_game):
+    #
+    # Play the hand
+    #
+    hands = copy.deepcopy(cards_playing)
+
+    points_hand = [0] * NUM_PLAYERS
+
+    # Determine which player has the 2 of clubs
+    for i in range(NUM_PLAYERS):
+        if CARD_2C in hands[i]:
+            lead = i
+            break
+
+    # Keep track of hearts being broken
+    hearts_broken = False
+
+    cards_played = [[] for _ in range(NUM_PLAYERS)]
+    turns_played = []
+    cards_remaining = list(DECK)
+
+    # Play each of the turns
+    for turn in range(NUM_CARDS):
+        logger.debug(f"lead: {lead} {players[lead]}")
+        lead_suit = None
+        cards_in_turn = []
+        for j in range(NUM_PLAYERS):
+            p = (j + lead) % NUM_PLAYERS
+            player = players[p]
+            if turn == 0 and j == 0:
+                # 2 of clubs must be the first card played
+                playable = [CARD_2C]
+            else:
+                playable = None
+                # See if player has any cards in the lead suit
+                if lead_suit is not None:
+                    playable = list(filter(lambda x: in_suit(x, lead_suit), hands[p]))
+                if not playable:
+                    # If not then include all player's cards
+                    playable = list(hands[p])
+                if turn == 0:
+                    # On first hand remove queen of spades
+                    playable = list(filter(lambda x: (x != CARD_QS), playable))
+                if turn == 0 or (j == 0 and not hearts_broken):
+                    # On first hand or if lead player and hearts not broken remove all hearts
+                    playable = list(filter(lambda x: (not in_suit(x, HEARTS)), playable))
+                # If we end up with no playable cards then bring back the hearts
+                if not playable:
+                    playable = list(filter(lambda x: in_suit(x, HEARTS), hands[p]))
+                if not playable:
+                    logger.error(f"ERROR: no playable cards from {serialize(hands[p],sort=True)}")
+                    exit(1)
+            # Player: play_turn
+            card = player.play_turn(
+                turn,
+                lead_suit,
+                cards_in_turn,
+                list(hands[p]), # deliberately copy the list
+                playable,
+                shift(points_hand, p),
+                shift(points_game, p),
+                [((x - p) % NUM_PLAYERS, y) for x, y, _ in turns_played],
+                cards_remaining,
+                cards_dealt[p],
+                direction,
+                cards_passed[p],
+                cards_received[p],
+            )
+            if card not in playable:
+                logger.error(
+                    f"ERROR: player: {player} played card {serialize(card)} which is not in the playable list of {serialize(playable,sort=True)}"
+                )
+                exit(1)
+
+            # Keep track of the cards played in this hand so far
+            cards_in_turn.append(card)
+            # Remove this card from the player's current hand
+            hands[p].remove(card)
+            # Keep track of each player's played cards
+            cards_played[p].append(card)
+            # Keep track of the remaining cards to be played
+            cards_remaining.remove(card)
+
+            if j == 0:
+                _, lead_suit = decode(card)
+            if not hearts_broken and in_suit(card, HEARTS):
+                logger.debug("hearts broken")
+                hearts_broken = True
+        logger.debug(f"lead: {lead} {players[lead]}, cards played in turn {turn}: {serialize(cards_in_turn)}")
+
+        # Determine the winner of the hand
+        max_c = None
+        max_p = None
+        for j, card in enumerate(cards_in_turn):
+            c, s = decode(card)
+            p = (j + lead) % NUM_PLAYERS
+            if j == 0:
+                lead_suit = s
+                max_c = c
+                max_p = p
+            elif s == lead_suit:
+                if c > max_c:
+                    max_c = c
+                    max_p = p
+
+        # Calculate points for this hand
+        points = calc_points(cards_in_turn)
+
+        # Calculate points for each player
+        points_in_turn = [0] * NUM_PLAYERS
+
+        if points == 26:
+            # TODO Offer choice of +26 or -26
+            for i in range(NUM_PLAYERS):
+                if i != max_p:
+                    points_in_turn[i] = 26
+        else:
+            points_in_turn[max_p] = points
+
+        # Calculate the accumulated points for each player
+        for i in range(NUM_PLAYERS):
+            points_hand[i] += points_in_turn[i]
+
+        for i, player in enumerate(players):
+            p = (i - lead) % NUM_PLAYERS
+            # Player: played_hand
+            player.played_hand(cards_in_turn, cards_in_turn[p], points_hand[i])
+
+        # Keep track of each round's who led and played cards
+        turns_played.append((lead, cards_in_turn, points_in_turn))
+
+        lead = max_p
+
+    return turns_played, points_hand
+
+
+def play_game(game_id, players, player_ids):
     points_game = [0] * NUM_PLAYERS
 
     rounds_played = [[] for _ in range(NUM_PLAYERS)]
@@ -104,21 +240,18 @@ def play_game(game, players, player_ids):
         deck = list(DECK)
         random.shuffle(deck)
 
-        hands = [None] * NUM_PLAYERS
-
         #
         # Deal all the cards
         #
         cards_dealt = [None] * NUM_PLAYERS
         for i, player in enumerate(players):
             cards_dealt[i] = deck[i * NUM_CARDS : (i + 1) * NUM_CARDS]
+            assert len(cards_dealt[i]) == NUM_CARDS
             # Player: dealt
-            player.dealt(cards_dealt[i].copy())
-            hands[i] = cards_dealt[i].copy()
-            assert len(hands[i]) == NUM_CARDS
+            player.dealt(list(cards_dealt[i]))# deliberately copy the list
 
         for i, player in enumerate(players):
-            logger.debug(f"cards dealt for player {i} {player}: {serialize(hands[i],sort=True)}")
+            logger.debug(f"cards dealt for player {i} {player}: {serialize(cards_dealt[i],sort=True)}")
 
         #
         # Get each player to pass 3 cards
@@ -128,156 +261,40 @@ def play_game(game, players, player_ids):
         if direction != 3:
             for i, player in enumerate(players):
                 # Player: pass_cards
-                cards = player.pass_cards(hands[i].copy(), direction)
+                cards = player.pass_cards(list(cards_dealt[i]), direction)# deliberately copy the list
                 logger.debug(f"cards passed from player {i} {player}: {cards}")
                 if len(cards) != 3:
                     logger.error(f"ERROR: player {player} passed {len(cards)} cards instead of 3")
                     exit(1)
-                if not set(cards).issubset(set(hands[i])):
+                if not set(cards).issubset(set(cards_dealt[i])):
                     logger.error(
-                        f"ERROR: player {player} passed {serialize(cards,sort=True)} which are not in {serialize(hands[i],sort=True)}"
+                        f"ERROR: player {player} passed {serialize(cards,sort=True)} which are not in {serialize(cards_dealt[i],sort=True)}"
                     )
                     exit(1)
-                hands[i] = list(set(hands[i]) - set(cards))
                 cards_passed[i] = cards
-                assert not set(cards_passed[i]).issubset(set(hands[i]))
 
             adj = -1 if direction == 0 else 1 if direction == 1 else 2
             for i, player in enumerate(players):
                 j = (i + adj) % NUM_PLAYERS
                 cards_received[i] = cards_passed[j]
+                # Player: receive_cards
                 player.receive_cards(cards_received[i].copy())
-                for card in cards_received[i]:
-                    hands[i].append(card)
-                assert set(cards_received[i]).issubset(set(hands[i]))
+
+        cards_playing = [None] * NUM_PLAYERS
+        for i, player in enumerate(players):
+            cards_playing[i] = list(cards_dealt[i])# deliberately copy the list
+            assert len(cards_playing[i]) == NUM_CARDS
+            if direction != 3:
+                cards_playing[i] = list(set(cards_playing[i]) - set(cards_passed[i]))
+                assert not set(cards_passed[i]).issubset(set(cards_playing[i]))
+                cards_playing[i] = list(set(cards_playing[i]) | set(cards_received[i]))
+                assert set(cards_received[i]).issubset(set(cards_playing[i]))
+                assert len(cards_playing[i]) == NUM_CARDS
 
         for i, player in enumerate(players):
-            logger.debug(f"cards after passing for player {i} {player}: {serialize(hands[i],sort=True)}")
+            logger.debug(f"cards after passing for player {i} {player}: {serialize(cards_playing[i],sort=True)}")
 
-        #
-        # Play the round
-        #
-        points_hand = [0] * NUM_PLAYERS
-
-        # Determine which player has the 2 of clubs
-        for i in range(NUM_PLAYERS):
-            if CARD_2C in hands[i]:
-                lead = i
-                break
-        hearts_broken = False
-        cards_played = [[] for _ in range(NUM_PLAYERS)]
-        turns_played = []
-        cards_remaining = list(DECK)
-        for turn in range(NUM_CARDS):
-            logger.debug(f"lead: {lead} {players[lead]}")
-            lead_suit = None
-            cards_in_turn = []
-            for j in range(NUM_PLAYERS):
-                p = (j + lead) % NUM_PLAYERS
-                player = players[p]
-                if turn == 0 and j == 0:
-                    # 2 of clubs must be the first card played
-                    playable = [CARD_2C]
-                else:
-                    playable = None
-                    # See if player has any cards in the lead suit
-                    if lead_suit is not None:
-                        playable = list(filter(lambda x: in_suit(x, lead_suit), hands[p]))
-                    if not playable:
-                        # If not then include all player's cards
-                        playable = list(hands[p])
-                    if turn == 0:
-                        # On first hand remove queen of spades
-                        playable = list(filter(lambda x: (x != CARD_QS), playable))
-                    if turn == 0 or (j == 0 and not hearts_broken):
-                        # On first hand or if lead player and hearts not broken remove all hearts
-                        playable = list(filter(lambda x: (not in_suit(x, HEARTS)), playable))
-                    # If we end up with no playable cards then bring back the hearts
-                    if not playable:
-                        playable = list(filter(lambda x: in_suit(x, HEARTS), hands[p]))
-                    if not playable:
-                        logger.error(f"ERROR: no playable cards from {serialize(hands[p],sort=True)}")
-                        exit(1)
-                # Player: play_turn
-                card = player.play_turn(
-                    turn,
-                    lead_suit,
-                    cards_in_turn,
-                    hands[p].copy(),
-                    playable,
-                    shift(points_hand, p),
-                    shift(points_game, p),
-                    [((x - p) % NUM_PLAYERS, y) for x, y, _ in turns_played],
-                    cards_remaining,
-                    cards_dealt[p],
-                    cards_passed[p],
-                    cards_received[p],
-                    direction,
-                )
-                if card not in playable:
-                    logger.error(
-                        f"ERROR: player: {player} played card {serialize(card)} which is not in the playable list of {serialize(playable,sort=True)}"
-                    )
-                    exit(1)
-
-                # Keep track of the cards played in this hand so far
-                cards_in_turn.append(card)
-                # Remove this card from the player's current hand
-                hands[p].remove(card)
-                # Keep track of each player's played cards
-                cards_played[p].append(card)
-                # Keep track of the remaining cards to be played
-                cards_remaining.remove(card)
-
-                if j == 0:
-                    _, lead_suit = decode(card)
-                if not hearts_broken and in_suit(card, HEARTS):
-                    logger.debug("hearts broken")
-                    hearts_broken = True
-            logger.debug(f"lead: {lead} {players[lead]}, cards played in turn {turn}: {serialize(cards_in_turn)}")
-
-            # Determine the winner of the hand
-            max_c = None
-            max_p = None
-            for j, card in enumerate(cards_in_turn):
-                c, s = decode(card)
-                p = (j + lead) % NUM_PLAYERS
-                if j == 0:
-                    lead_suit = s
-                    max_c = c
-                    max_p = p
-                elif s == lead_suit:
-                    if c > max_c:
-                        max_c = c
-                        max_p = p
-
-            # Calculate points for this hand
-            points = calc_points(cards_in_turn)
-
-            # Calcluate points for each player
-            points_in_turn = [0] * NUM_PLAYERS
-
-            if points == 26:
-                # TODO Offer choice of +26 or -26
-                for i in range(NUM_PLAYERS):
-                    if i != max_p:
-                        points_in_turn[i] = 26
-            else:
-                points_in_turn[max_p] = points
-
-            # Calculate the accumulated points for each player
-            for i in range(NUM_PLAYERS):
-                points_hand[i] += points_in_turn[i]
-
-            for i, player in enumerate(players):
-                p = (i - lead) % NUM_PLAYERS
-                # Player: played_hand
-                player.played_hand(cards_in_turn, cards_in_turn[p], points_hand[i])
-
-            # Keep track of each round's who led and played cards
-            turns_played.append((lead, cards_in_turn, points_in_turn))
-
-            lead = max_p
+        turns_played,points_hand = play_hand(cards_dealt,direction,cards_passed,cards_received,cards_playing,points_game)
 
         #
         # Update the passing db table
@@ -290,39 +307,39 @@ def play_game(game, players, player_ids):
                     points=-26 if points_hand[i] == 26 else points_hand[i],
                 )
                 session.add(entry)
-                session.commit()
+            session.commit()
 
-        # Keep track of all hands played for the whole game
+        #
+        # Update the hands db table
+        #
+        for i, player in enumerate(players):
+            entry = HandModel(
+                game=game_id,
+                player=player_ids[i],
+                dealt=serializedb(cards_dealt[i], sort=True),
+                direction=direction,
+                passed=serializedb(cards_passed[i], sort=True),
+                received=serializedb(cards_received[i], sort=True),
+                playing=serializedb(cards_playing[i], sort=True),
+                turns=' '.join([f"{(x-i)%NUM_PLAYERS} {serializedb(y)}" for x,y,_ in turns_played]),
+                points=points_hand[i],
+            )
+            session.add(entry)
+        session.commit()
+
+        #
+        # Keep track of played games
+        #
         for i, player in enumerate(players):
             rounds_played[i].append(
                 (
                     [((x - i) % NUM_PLAYERS, y, shift(z, i)) for x, y, z in turns_played],
                     cards_dealt[i],
+                    direction,
                     cards_passed[i],
                     cards_received[i],
-                    direction,
                 )
             )
-
-        #
-        # Log the played cards along with their points
-        #
-        for i, player in enumerate(players):
-            cards = cards_dealt[i]
-            if cards_passed[i]:
-                cards = list(set(cards) - set(cards_passed[i]))
-            if cards_received[i]:
-                cards = list(set(cards) | set(cards_received[i]))
-            assert sorted(cards) == sorted(cards_played[i])
-            line = (
-                sorted(list(cards_dealt[i]))
-                + (sorted(list(cards_passed[i])) if cards_passed[i] else [CARDS_IN_DECK] * 3)
-                + (sorted(list(cards_received[i])) if cards_received[i] else [CARDS_IN_DECK] * 3)
-                + cards_played[i]
-                + [points_hand[i]]
-            )
-            with open(ROUND_LOGFILE, "ab") as f:
-                f.write(bytes(line))
 
         direction = (direction + 1) % 4
 
@@ -407,7 +424,7 @@ while True:
     session.flush()
     assert game.id
 
-    points = play_game(game, players, player_ids)
+    points = play_game(game.id, players, player_ids)
 
     game.points_1 = points[0]
     game.points_2 = points[1]
