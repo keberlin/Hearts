@@ -3,8 +3,7 @@ all:
 .FORCE:
 
 format: .FORCE
-	isort *.py */*.py
-	black -l120 .
+	pre-commit
 
 tests: .FORCE
 	pytest -vv tests

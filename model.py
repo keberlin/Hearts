@@ -25,6 +25,10 @@ class GameModel(db.Model):
     points_2 = db.Column("points_2", Integer, nullable=True)
     points_3 = db.Column("points_3", Integer, nullable=True)
     points_4 = db.Column("points_4", Integer, nullable=True)
+    position_1 = db.Column("position_1", Integer, nullable=True)
+    position_2 = db.Column("position_2", Integer, nullable=True)
+    position_3 = db.Column("position_3", Integer, nullable=True)
+    position_4 = db.Column("position_4", Integer, nullable=True)
 
 
 class PassingModel(db.Model):
@@ -47,5 +51,5 @@ class HandModel(db.Model):
     passed = db.Column("passed", String(2 * 3), nullable=False)
     received = db.Column("received", String(2 * 3), nullable=False)
     playing = db.Column("playing", String(2 * 13), nullable=False)
-    turns = db.Column("turns", String((2 + 2 * 4) * 13 +(13-1)), nullable=False)
+    turns = db.Column("turns", String((2 + 2 * 4) * 13 + (13 - 1)), nullable=False)
     points = db.Column("points", Integer, nullable=False)

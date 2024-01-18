@@ -1,23 +1,23 @@
-import copy
 import argparse
+import copy
+from datetime import datetime
 import json
 import logging
 import os
 import random
-from datetime import datetime
 
 from card import *
-from database import HEARTS_DB_URI, db_init
+from database import db_init, HEARTS_DB_URI
 from model import GameModel, HandModel, PassingModel, PlayerModel
 from player_ai import AIPlayer
 from player_random import RandomPlayer
+from utils import ranking
 
 logger = logging.getLogger()
 logging.basicConfig(filename="/var/log/hearts/log", level=logging.DEBUG)
 
 session = db_init(HEARTS_DB_URI)
 
-STATISTICS = False
 
 # Get 4 players
 
@@ -75,7 +75,6 @@ args = parser.parse_args()
 games = args.games
 
 
-
 def shift(a, i):
     i %= len(a)
     return a[i:] + a[:i]
@@ -84,11 +83,8 @@ def shift(a, i):
 NUM_PLAYERS = 4
 NUM_CARDS = len(DECK) // NUM_PLAYERS
 
-STATS_JSON_FILE = "stats.json"
-STATS_RESULTS_FILE = "stats.txt"
 
-
-def play_hand(cards_dealt,direction,cards_passed,cards_received,cards_playing,points_game):
+def play_hand(cards_dealt, direction, cards_passed, cards_received, cards_playing, points_game):
     #
     # Play the hand
     #
@@ -145,7 +141,7 @@ def play_hand(cards_dealt,direction,cards_passed,cards_received,cards_playing,po
                 turn,
                 lead_suit,
                 cards_in_turn,
-                list(hands[p]), # deliberately copy the list
+                list(hands[p]),  # deliberately copy the list
                 playable,
                 shift(points_hand, p),
                 shift(points_game, p),
@@ -248,7 +244,7 @@ def play_game(game_id, players, player_ids):
             cards_dealt[i] = deck[i * NUM_CARDS : (i + 1) * NUM_CARDS]
             assert len(cards_dealt[i]) == NUM_CARDS
             # Player: dealt
-            player.dealt(list(cards_dealt[i]))# deliberately copy the list
+            player.dealt(list(cards_dealt[i]))  # deliberately copy the list
 
         for i, player in enumerate(players):
             logger.debug(f"cards dealt for player {i} {player}: {serialize(cards_dealt[i],sort=True)}")
@@ -261,7 +257,7 @@ def play_game(game_id, players, player_ids):
         if direction != 3:
             for i, player in enumerate(players):
                 # Player: pass_cards
-                cards = player.pass_cards(list(cards_dealt[i]), direction)# deliberately copy the list
+                cards = player.pass_cards(list(cards_dealt[i]), direction)  # deliberately copy the list
                 logger.debug(f"cards passed from player {i} {player}: {cards}")
                 if len(cards) != 3:
                     logger.error(f"ERROR: player {player} passed {len(cards)} cards instead of 3")
@@ -282,7 +278,7 @@ def play_game(game_id, players, player_ids):
 
         cards_playing = [None] * NUM_PLAYERS
         for i, player in enumerate(players):
-            cards_playing[i] = list(cards_dealt[i])# deliberately copy the list
+            cards_playing[i] = list(cards_dealt[i])  # deliberately copy the list
             assert len(cards_playing[i]) == NUM_CARDS
             if direction != 3:
                 cards_playing[i] = list(set(cards_playing[i]) - set(cards_passed[i]))
@@ -294,7 +290,9 @@ def play_game(game_id, players, player_ids):
         for i, player in enumerate(players):
             logger.debug(f"cards after passing for player {i} {player}: {serialize(cards_playing[i],sort=True)}")
 
-        turns_played,points_hand = play_hand(cards_dealt,direction,cards_passed,cards_received,cards_playing,points_game)
+        turns_played, points_hand = play_hand(
+            cards_dealt, direction, cards_passed, cards_received, cards_playing, points_game
+        )
 
         #
         # Update the passing db table
@@ -321,7 +319,7 @@ def play_game(game_id, players, player_ids):
                 passed=serializedb(cards_passed[i], sort=True),
                 received=serializedb(cards_received[i], sort=True),
                 playing=serializedb(cards_playing[i], sort=True),
-                turns=' '.join([f"{(x-i)%NUM_PLAYERS} {serializedb(y)}" for x,y,_ in turns_played]),
+                turns=" ".join([f"{(x-i)%NUM_PLAYERS} {serializedb(y)}" for x, y, _ in turns_played]),
                 points=points_hand[i],
             )
             session.add(entry)
@@ -357,12 +355,6 @@ def play_game(game_id, players, player_ids):
         # Player: played_game
         player.played_game(shift(points_game, i), rounds_played[i])
 
-    def ranking(points_player, points_game):
-        for i, points in enumerate(set(points_game)):
-            if points_player == points:
-                return i
-        assert False, f"{points_player} is not in {points_game}"
-
     #
     # Determine which player has won
     #
@@ -377,21 +369,8 @@ def play_game(game_id, players, player_ids):
         if points_game[i] == max_points:
             losers.append(i)
 
-    if STATISTICS:
-        # Keep track of how many historic_statistics each player has
-        for i in winners:
-            username = str(players[i])
-            historic_statistics["players"][username][1] += 1
-
     return points_game
 
-
-if STATISTICS:
-    historic_statistics = {"players": {}, "games_played": 0}
-
-    if os.path.isfile(STATS_JSON_FILE):
-        with open(STATS_JSON_FILE, "r") as f:
-            historic_statistics = json.loads(f.read())
 
 num_games = 0
 
@@ -408,10 +387,6 @@ while True:
             session.flush()
             assert entry.id
         player_ids.append(entry.id)
-        if STATISTICS:
-            if not username in historic_statistics["players"]:
-                historic_statistics["players"][username] = [0, 0]
-            historic_statistics["players"][username][0] += 1
 
     game = GameModel(
         start=datetime.utcnow(),
@@ -430,6 +405,10 @@ while True:
     game.points_2 = points[1]
     game.points_3 = points[2]
     game.points_4 = points[3]
+    game.position_1 = ranking(points[0], points)
+    game.position_2 = ranking(points[1], points)
+    game.position_3 = ranking(points[2], points)
+    game.position_4 = ranking(points[3], points)
     game.finish = datetime.utcnow()
     session.commit()
 
@@ -437,20 +416,3 @@ while True:
 
     if num_games >= games:
         break
-
-if STATISTICS:
-    historic_statistics["games_played"] += num_games
-    historic_statistics["number_of_players"] = len(historic_statistics["players"])
-
-    with open(STATS_JSON_FILE, "w") as f:
-        f.write(json.dumps(historic_statistics, indent=4))
-
-    with open(STATS_RESULTS_FILE, "w") as f:
-        # Only include usernames who have played 200 or more games
-        stats = [
-            (k, v[0], v[1], v[1] * 100 / v[0])
-            for k, v in filter(lambda x: x[1][0] >= 200, historic_statistics["players"].items())
-        ]
-        stats.sort(key=lambda x: x[3], reverse=False)
-        for v in stats:
-            f.write(f"username: {v[0]}, played: {v[1]}, won: {v[2]} ({v[3]:.2f}%)\n")
