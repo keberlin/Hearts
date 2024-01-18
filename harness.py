@@ -3,10 +3,11 @@ import json
 import logging
 import os
 import random
+from datetime import datetime
 
 from card import *
 from database import HEARTS_DB_URI, db_init
-from model import PassingModel
+from model import GameModel, HandModel, PassingModel, PlayerModel
 from player_ai import AIPlayer
 from player_random import RandomPlayer
 
@@ -15,6 +16,7 @@ logging.basicConfig(filename="/var/log/hearts/log", level=logging.DEBUG)
 
 session = db_init(HEARTS_DB_URI)
 
+STATISTICS = False
 
 # Get 4 players
 
@@ -66,9 +68,6 @@ session = db_init(HEARTS_DB_URI)
 
 
 parser = argparse.ArgumentParser(description="Hearts card game harness.")
-parser.add_argument(
-    "-f", dest="force_lose", action="store_true", default=False, help="Play until AI player loses", required=False
-)
 parser.add_argument("-g", dest="games", type=int, default=1, help="Number of games to play", required=False)
 args = parser.parse_args()
 
@@ -88,27 +87,8 @@ NUM_CARDS = len(DECK) // NUM_PLAYERS
 STATS_JSON_FILE = "stats.json"
 STATS_RESULTS_FILE = "stats.txt"
 
-historic_statistics = {"players": {}, "games_played": 0}
 
-if os.path.isfile(STATS_JSON_FILE):
-    with open(STATS_JSON_FILE, "r") as f:
-        historic_statistics = json.loads(f.read())
-
-num_games = 0
-
-while True:
-
-    if not (args.force_lose or num_games < games):
-        break
-
-    players = [AIPlayer(i) for i in range(4)]
-
-    for player in players:
-        username = str(player)
-        if not username in historic_statistics["players"]:
-            historic_statistics["players"][username] = [0, 0]
-        historic_statistics["players"][username][0] += 1
-
+def play_game(game, players, player_ids):
     points_game = [0] * NUM_PLAYERS
 
     rounds_played = [[] for _ in range(NUM_PLAYERS)]
@@ -118,7 +98,6 @@ while True:
     play = True
 
     while play:
-
         #
         # Shuffle the deck
         #
@@ -362,8 +341,7 @@ while True:
         player.played_game(shift(points_game, i), rounds_played[i])
 
     def ranking(points_player, points_game):
-        points_game = set(points_game)
-        for i, points in enumerate(points_game):
+        for i, points in enumerate(set(points_game)):
             if points_player == points:
                 return i
         assert False, f"{points_player} is not in {points_game}"
@@ -382,28 +360,80 @@ while True:
         if points_game[i] == max_points:
             losers.append(i)
 
-    # Keep track of how many historic_statistics each player has
-    for i in winners:
-        username = str(players[i])
-        historic_statistics["players"][username][1] += 1
+    if STATISTICS:
+        # Keep track of how many historic_statistics each player has
+        for i in winners:
+            username = str(players[i])
+            historic_statistics["players"][username][1] += 1
 
-    if args.force_lose and 3 in losers:
-        break
+    return points_game
+
+
+if STATISTICS:
+    historic_statistics = {"players": {}, "games_played": 0}
+
+    if os.path.isfile(STATS_JSON_FILE):
+        with open(STATS_JSON_FILE, "r") as f:
+            historic_statistics = json.loads(f.read())
+
+num_games = 0
+
+while True:
+    players = [AIPlayer(i) for i in range(4)]
+
+    player_ids = []
+    for player in players:
+        username = str(player)
+        entry = session.query(PlayerModel).filter(PlayerModel.name == username).one_or_none()
+        if not entry:
+            entry = PlayerModel(name=username)
+            session.add(entry)
+            session.flush()
+            assert entry.id
+        player_ids.append(entry.id)
+        if STATISTICS:
+            if not username in historic_statistics["players"]:
+                historic_statistics["players"][username] = [0, 0]
+            historic_statistics["players"][username][0] += 1
+
+    game = GameModel(
+        start=datetime.utcnow(),
+        player_1=player_ids[0],
+        player_2=player_ids[1],
+        player_3=player_ids[2],
+        player_4=player_ids[3],
+    )
+    session.add(game)
+    session.flush()
+    assert game.id
+
+    points = play_game(game, players, player_ids)
+
+    game.points_1 = points[0]
+    game.points_2 = points[1]
+    game.points_3 = points[2]
+    game.points_4 = points[3]
+    game.finish = datetime.utcnow()
+    session.commit()
 
     num_games += 1
 
-historic_statistics["games_played"] += num_games
-historic_statistics["number_of_players"] = len(historic_statistics["players"])
+    if num_games >= games:
+        break
 
-with open(STATS_JSON_FILE, "w") as f:
-    f.write(json.dumps(historic_statistics, indent=4))
+if STATISTICS:
+    historic_statistics["games_played"] += num_games
+    historic_statistics["number_of_players"] = len(historic_statistics["players"])
 
-with open(STATS_RESULTS_FILE, "w") as f:
-    # Only include usernames who have played 200 or more games
-    stats = [
-        (k, v[0], v[1], v[1] * 100 / v[0])
-        for k, v in filter(lambda x: x[1][0] >= 200, historic_statistics["players"].items())
-    ]
-    stats.sort(key=lambda x: x[3], reverse=False)
-    for v in stats:
-        f.write(f"username: {v[0]}, played: {v[1]}, won: {v[2]} ({v[3]:.2f}%)\n")
+    with open(STATS_JSON_FILE, "w") as f:
+        f.write(json.dumps(historic_statistics, indent=4))
+
+    with open(STATS_RESULTS_FILE, "w") as f:
+        # Only include usernames who have played 200 or more games
+        stats = [
+            (k, v[0], v[1], v[1] * 100 / v[0])
+            for k, v in filter(lambda x: x[1][0] >= 200, historic_statistics["players"].items())
+        ]
+        stats.sort(key=lambda x: x[3], reverse=False)
+        for v in stats:
+            f.write(f"username: {v[0]}, played: {v[1]}, won: {v[2]} ({v[3]:.2f}%)\n")

@@ -16,7 +16,15 @@ class GameModel(db.Model):
 
     id = db.Column("id", Integer, Identity(), primary_key=True, nullable=False)
     start = db.Column("start", DateTime, nullable=False)
+    finish = db.Column("finish", DateTime, nullable=True)
     player_1 = db.Column("player_1", ForeignKey(PlayerModel.id), nullable=True)
+    player_2 = db.Column("player_2", ForeignKey(PlayerModel.id), nullable=True)
+    player_3 = db.Column("player_3", ForeignKey(PlayerModel.id), nullable=True)
+    player_4 = db.Column("player_4", ForeignKey(PlayerModel.id), nullable=True)
+    points_1 = db.Column("points_1", Integer, nullable=True)
+    points_2 = db.Column("points_2", Integer, nullable=True)
+    points_3 = db.Column("points_3", Integer, nullable=True)
+    points_4 = db.Column("points_4", Integer, nullable=True)
 
 
 class PassingModel(db.Model):
