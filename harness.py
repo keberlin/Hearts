@@ -301,6 +301,7 @@ def play_game(game_id, players, player_ids):
             for i in range(NUM_PLAYERS):
                 entry = PassingModel(
                     dealt=serializedb(cards_dealt[i], sort=True),
+                    direction=direction,
                     passed=serializedb(cards_passed[i], sort=True),
                     points=-26 if points_hand[i] == 26 else points_hand[i],
                 )

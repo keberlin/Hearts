@@ -1,4 +1,4 @@
-from sqlalchemy import DateTime, ForeignKey, Identity, Integer, String
+from sqlalchemy import DateTime, ForeignKey, Identity, Index, Integer, String
 
 from database import db
 
@@ -33,15 +33,18 @@ class GameModel(db.Model):
 
 class PassingModel(db.Model):
     __tablename__ = "passing"
+    __table_args__ = (Index("passing_idx", "dealt", "direction", unique=False),)
 
     id = db.Column("id", Integer, Identity(), primary_key=True, nullable=False)
     dealt = db.Column("dealt", String(2 * 13), nullable=False)
+    direction = db.Column("direction", Integer, nullable=False)
     passed = db.Column("passed", String(2 * 3), nullable=False)
     points = db.Column("points", Integer, nullable=False)
 
 
 class HandModel(db.Model):
     __tablename__ = "hands"
+    __table_args__ = (Index("hand_idx", "dealt", "direction", "playing", unique=False),)
 
     id = db.Column("id", Integer, Identity(), primary_key=True, nullable=False)
     game = db.Column("game", ForeignKey(GameModel.id), nullable=False)

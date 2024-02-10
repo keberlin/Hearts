@@ -1,0 +1,12 @@
+#!/bin/sh
+
+RELEASE=/var/www/hearts/
+
+echo 'Copying Python files..'
+cp -u *.py $RELEASE
+echo 'Copying sh files..'
+cp -u *.sh $RELEASE
+echo 'Copying Makefile..'
+cp -u Makefile $RELEASE
+echo 'Copying venv directory..'
+cp -ru venv $RELEASE

@@ -12,6 +12,6 @@ source venv/bin/activate
 
 while true
 do
-  python harness.py -g10 || exit 1
+  python harness.py -g5 || exit 1
   sleep 1
 done
