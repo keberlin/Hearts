@@ -93,6 +93,7 @@ class AIPlayer(Player):
         direction,
         cards_passed,
         cards_received,
+        cards_playing,
     ):
         FACT_HEARTS_BROKEN = 0
         FACT_HEARTS_IN_THIS_TURN = 1

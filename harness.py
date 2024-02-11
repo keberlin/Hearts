@@ -10,6 +10,7 @@ from card import *
 from database import db_init, HEARTS_DB_URI
 from model import GameModel, HandModel, PassingModel, PlayerModel
 from player_ai import AIPlayer
+from player_heuristic import HeuristicPlayer
 from player_random import RandomPlayer
 from utils import ranking
 
@@ -151,6 +152,7 @@ def play_hand(cards_dealt, direction, cards_passed, cards_received, cards_playin
                 direction,
                 cards_passed[p],
                 cards_received[p],
+                cards_playing[p],
             )
             if card not in playable:
                 logger.error(
@@ -376,7 +378,7 @@ def play_game(game_id, players, player_ids):
 num_games = 0
 
 while True:
-    players = [AIPlayer(i) for i in range(4)]
+    players = [AIPlayer(0), AIPlayer(1), AIPlayer(2), HeuristicPlayer(3)]
 
     player_ids = []
     for player in players:

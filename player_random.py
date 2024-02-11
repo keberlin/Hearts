@@ -5,7 +5,7 @@ from player import *
 
 class RandomPlayer(Player):
     def __init__(self, id):
-        super().__init__(id, "Random %d" % id)
+        super().__init__(id, "Random")
 
     def pass_cards(self, cards_dealt, direction):
         return random.sample(cards_dealt, 3)
@@ -25,5 +25,6 @@ class RandomPlayer(Player):
         direction,
         cards_passed,
         cards_received,
+        cards_playing,
     ):
         return random.choice(playable)

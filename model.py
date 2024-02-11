@@ -44,7 +44,7 @@ class PassingModel(db.Model):
 
 class HandModel(db.Model):
     __tablename__ = "hands"
-    __table_args__ = (Index("hand_idx", "dealt", "direction", "playing", unique=False),)
+    __table_args__ = (Index("hand_idx", "playing", unique=False),)
 
     id = db.Column("id", Integer, Identity(), primary_key=True, nullable=False)
     game = db.Column("game", ForeignKey(GameModel.id), nullable=False)

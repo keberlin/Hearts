@@ -8,6 +8,10 @@ SPADES = 2
 HEARTS = 3
 
 
+def encode(s, v):
+    return s * CARDS_IN_SUIT + v
+
+
 def decode(i):
     return i % CARDS_IN_SUIT, i // CARDS_IN_SUIT
 
@@ -18,8 +22,12 @@ def in_suit(i, s):
 
 DECK = [i for i in range(CARDS_IN_DECK)]
 
-NM_VALUES = ["2", "3", "4", "5", "6", "7", "8", "9", "X", "J", "Q", "K", "A"]
 NM_SUITS = ["C", "D", "S", "H"]
+NM_VALUES = ["2", "3", "4", "5", "6", "7", "8", "9", "X", "J", "Q", "K", "A"]
+
+
+def card(s, v):
+    return encode(NM_SUITS.index(s), NM_VALUES.index(v))
 
 
 def serialize(v, sort=False):
@@ -44,7 +52,11 @@ def deserialize(nm):
         return list(map(lambda x: deserialize(x), nm))
     if type(nm) is set:
         return deserialize(list(nm))
-    return NM_SUITS.index(nm[1]) * CARDS_IN_SUIT + NM_VALUES.index(nm[0])
+    return card(nm[1], nm[0])
+
+
+def deserializedb(v):
+    return [deserialize(v[i : i + 2]) for i in range(0, len(v), 2)]
 
 
 CARD_2C = deserialize("2C")
