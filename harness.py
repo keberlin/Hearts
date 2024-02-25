@@ -146,7 +146,7 @@ def play_hand(cards_dealt, direction, cards_passed, cards_received, cards_playin
                 playable,
                 shift(points_hand, p),
                 shift(points_game, p),
-                [((x - p) % NUM_PLAYERS, y) for x, y, _ in turns_played],
+                [((p - x) % NUM_PLAYERS, y) for x, y, _ in turns_played],
                 cards_remaining,
                 cards_dealt[p],
                 direction,
@@ -313,6 +313,9 @@ def play_game(game_id, players, player_ids):
         #
         # Update the hands db table
         #
+        def _turndb(pos: int, cards: list):
+            return f"{pos} {serializedb(cards)}"
+
         for i, player in enumerate(players):
             entry = HandModel(
                 game=game_id,
@@ -322,7 +325,7 @@ def play_game(game_id, players, player_ids):
                 passed=serializedb(cards_passed[i], sort=True),
                 received=serializedb(cards_received[i], sort=True),
                 playing=serializedb(cards_playing[i], sort=True),
-                turns=" ".join([f"{(x-i)%NUM_PLAYERS} {serializedb(y)}" for x, y, _ in turns_played]),
+                turns=" ".join([f"{_turndb((x-i)%NUM_PLAYERS,y)}" for x, y, _ in turns_played]),
                 points=points_hand[i],
             )
             session.add(entry)
@@ -334,7 +337,7 @@ def play_game(game_id, players, player_ids):
         for i, player in enumerate(players):
             rounds_played[i].append(
                 (
-                    [((x - i) % NUM_PLAYERS, y, shift(z, i)) for x, y, z in turns_played],
+                    [((i - x) % NUM_PLAYERS, y, shift(z, i)) for x, y, z in turns_played],
                     cards_dealt[i],
                     direction,
                     cards_passed[i],

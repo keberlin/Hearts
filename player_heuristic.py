@@ -10,6 +10,10 @@ from player import Player
 session = db_init(HEARTS_DB_URI)
 
 
+def _turndb(pos: int, cards: list):
+    return f"{pos} {serializedb(cards)}"
+
+
 class HeuristicPlayer(Player):
     def __init__(self, id):
         super().__init__(id, "Heuristic")
@@ -49,18 +53,25 @@ class HeuristicPlayer(Player):
         cards_playing,
     ):
         self.number_of_turns += 1
-        # TODO: Need to add turns..
+        pos = len(cards_in_turn)
+        turns = " ".join([_turndb(v[0], v[1]) for v in turns_played + [(pos, cards_in_turn)]])
+        print(f"turns: {turns}")
         results = (
-            session.query(HandModel)
+            session.query(HandModel.turns)
             .filter(HandModel.playing == serializedb(cards_playing, sort=True))
+            .filter(HandModel.turns.startswith(turns))
             .order_by(HandModel.points)
             .first()
         )
         if results:
             self.number_of_turns_hits += 1
-            return deserializedb(results.turns[n : n + 1])
+            n = len(turns)
+            print(f"play: {results.turns[n:n+2]}")
+            return deserializedb(results.turns[n : n + 2])
         return random.choice(playable)
 
     def played_game(self, points_game, hands_played):
-        print(f"passing %: {self.number_of_passing_hits*100/self.number_of_passing:.2f}")
-        print(f"hands %: {self.number_of_turns_hits*100/self.number_of_turns:.2f}")
+        if self.number_of_passing_hits:
+            print(f"passing: {self.number_of_passing_hits*100/self.number_of_passing:.3f}%")
+        if self.number_of_turns_hits:
+            print(f"hands: {self.number_of_turns_hits*100/self.number_of_turns:.3f}%")

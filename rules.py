@@ -37,31 +37,37 @@ class Rules:
 
     @classmethod
     def _pass_two_clubs(cls, suits):
-        # Pass the 2 of Clubs
+        # Rule: Always pass the 2 of Clubs
+        # Logic: if we hold the 2 of Clubs
         if CARD_2C in suits[CLUBS]:
             return CARD_2C
 
     @classmethod
     def _pass_queen_spades(cls, suits):
-        # Pass the Queen of Spades
+        # Rule: Always pass the Queen of Spades
+        # Logic: if we hold the Queen of Spades
         if CARD_QS in suits[SPADES]:
             return CARD_QS
 
     @classmethod
     def _pass_queen_spades_max_3_spades(cls, suits):
-        # Pass the Queen of Spades if we have less than 4 Spades
-        if CARD_QS in suits[SPADES] and len(suits[SPADES]) <= 3:
+        # Rule: Pass the Queen of Spades if we have less than 4 Spades
+        # Logic: if we hold the Queen of Spades and we hold less than 4 Spades
+        if CARD_QS in suits[SPADES] and len(suits[SPADES]) < 4:
             return CARD_QS
 
     @classmethod
     def _pass_high_spades_no_lower(cls, suits):
-        # If we have no lower Spades then ditch the high ones, Ace, King or Queen
+        # Rule: If we have no lower Spades then ditch the high ones, Queen, King or Ace
+        # Logic: if we hold some Spades and do not hold any Spades less than the Queen
         lower = list(filter(lambda x: x < CARD_QS, suits[SPADES]))
         if len(lower) == 0 and len(suits[SPADES]):
-            return suits[SPADES][-1]
+            return suits[SPADES][0]
 
     @classmethod
     def _pass_high_except_spades(cls, suits):
+        # Rule: Return the highest card of the costliest suit other then Spades
+        # Logic: the highest card from the costliest suit excluding Spades
         # Calculate a nominal score for each suit
         scores = [(cls._score(suit), i) for i, suit in filter(lambda x: x[0] != SPADES and len(x[1]), enumerate(suits))]
         if scores:
