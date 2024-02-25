@@ -325,7 +325,7 @@ def play_game(game_id, players, player_ids):
                 passed=serializedb(cards_passed[i], sort=True),
                 received=serializedb(cards_received[i], sort=True),
                 playing=serializedb(cards_playing[i], sort=True),
-                turns=" ".join([f"{_turndb((x-i)%NUM_PLAYERS,y)}" for x, y, _ in turns_played]),
+                turns=" ".join([f"{_turndb((i-x)%NUM_PLAYERS,y)}" for x, y, _ in turns_played]),
                 points=points_hand[i],
             )
             session.add(entry)
