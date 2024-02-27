@@ -1,3 +1,5 @@
+import re
+
 CARDS_IN_SUIT = 13
 SUITS_IN_DECK = 4
 CARDS_IN_DECK = CARDS_IN_SUIT * SUITS_IN_DECK
@@ -6,6 +8,11 @@ CLUBS = 0
 DIAMONDS = 1
 SPADES = 2
 HEARTS = 3
+
+CHAR_CLUBS = "\u2667"
+CHAR_DIAMONDS = "\u2662"
+CHAR_SPADES = "\u2664"
+CHAR_HEARTS = "\u2661"
 
 
 def encode(s, v):
@@ -41,6 +48,24 @@ def serialize(v, sort=False):
         return "--"
     c, s = decode(v)
     return NM_VALUES[c] + NM_SUITS[s]
+
+
+TEXT_BLACK = "\033[30;47m"
+TEXT_RESET = "\033[37;40m"
+TEXT_RED = "\033[31;40m"
+
+
+def serializepr(v, sort=False):
+    return " ".join(serialize(v, sort))
+
+
+def serializeco(v, sort=False):
+    print(f"{serialize(v,sort)}")
+    s = " ".join(serialize(v, sort))
+    s = re.sub(r"([23456789XJQK])", r"\033[30;47m\1\033[37;40m", s)
+    s = re.sub(r"([CS])", r"\033[30;47m\1\033[37;40m", s)
+    s = re.sub(r"([DH])", r"\033[31;47m\1\033[37;40m", s)
+    return s
 
 
 def serializedb(v, sort=False):

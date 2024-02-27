@@ -8,14 +8,12 @@ import random
 
 from card import *
 from database import db_init, HEARTS_DB_URI
+from logger import logger
 from model import GameModel, HandModel, PassingModel, PlayerModel
 from player_ai import AIPlayer
 from player_heuristic import HeuristicPlayer
 from player_random import RandomPlayer
 from utils import ranking
-
-logger = logging.getLogger()
-logging.basicConfig(filename="/var/log/hearts/log", level=logging.DEBUG)
 
 session = db_init(HEARTS_DB_URI)
 
@@ -135,7 +133,7 @@ def play_hand(cards_dealt, direction, cards_passed, cards_received, cards_playin
                 if not playable:
                     playable = list(filter(lambda x: in_suit(x, HEARTS), hands[p]))
                 if not playable:
-                    logger.error(f"ERROR: no playable cards from {serialize(hands[p],sort=True)}")
+                    logger.error(f"player {player} no playable cards from {serializepr(hands[p],sort=True)}")
                     exit(1)
             # Player: play_turn
             card = player.play_turn(
@@ -156,7 +154,7 @@ def play_hand(cards_dealt, direction, cards_passed, cards_received, cards_playin
             )
             if card not in playable:
                 logger.error(
-                    f"ERROR: player: {player} played card {serialize(card)} which is not in the playable list of {serialize(playable,sort=True)}"
+                    f"player: {player} played card {serializepr(card)} which is not in the playable list of {serializepr(playable,sort=True)}"
                 )
                 exit(1)
 
@@ -174,7 +172,7 @@ def play_hand(cards_dealt, direction, cards_passed, cards_received, cards_playin
             if not hearts_broken and in_suit(card, HEARTS):
                 logger.debug("hearts broken")
                 hearts_broken = True
-        logger.debug(f"lead: {lead} {players[lead]}, cards played in turn {turn}: {serialize(cards_in_turn)}")
+        logger.debug(f"lead: {lead} {players[lead]}, cards played in turn {turn}: {serializepr(cards_in_turn)}")
 
         # Determine the winner of the hand
         max_c = None
@@ -249,7 +247,7 @@ def play_game(game_id, players, player_ids):
             player.dealt(list(cards_dealt[i]))  # deliberately copy the list
 
         for i, player in enumerate(players):
-            logger.debug(f"cards dealt for player {i} {player}: {serialize(cards_dealt[i],sort=True)}")
+            logger.debug(f"cards dealt for player {i} {player}: {serializepr(cards_dealt[i],sort=True)}")
 
         #
         # Get each player to pass 3 cards
@@ -262,11 +260,11 @@ def play_game(game_id, players, player_ids):
                 cards = player.pass_cards(list(cards_dealt[i]), direction)  # deliberately copy the list
                 logger.debug(f"cards passed from player {i} {player}: {cards}")
                 if len(cards) != 3:
-                    logger.error(f"ERROR: player {player} passed {len(cards)} cards instead of 3")
+                    logger.error(f"player {player} passed {len(cards)} cards instead of 3")
                     exit(1)
                 if not set(cards).issubset(set(cards_dealt[i])):
                     logger.error(
-                        f"ERROR: player {player} passed {serialize(cards,sort=True)} which are not in {serialize(cards_dealt[i],sort=True)}"
+                        f"player {player} passed {serializepr(cards,sort=True)} which are not in {serializepr(cards_dealt[i],sort=True)}"
                     )
                     exit(1)
                 cards_passed[i] = cards
@@ -290,7 +288,7 @@ def play_game(game_id, players, player_ids):
                 assert len(cards_playing[i]) == NUM_CARDS
 
         for i, player in enumerate(players):
-            logger.debug(f"cards after passing for player {i} {player}: {serialize(cards_playing[i],sort=True)}")
+            logger.debug(f"cards after passing for player {i} {player}: {serializepr(cards_playing[i],sort=True)}")
 
         turns_played, points_hand = play_hand(
             cards_dealt, direction, cards_passed, cards_received, cards_playing, points_game
@@ -352,7 +350,7 @@ def play_game(game_id, players, player_ids):
 
         play = not list(filter(lambda x: x >= 100, points_game))
 
-    logger.info(f"end of game: {points_game}")
+    logger.debug(f"end of game: {points_game}")
 
     #
     # Inform each player of the final score

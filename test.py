@@ -2,4 +2,5 @@ from card import *
 
 print(f"{serializedb(DECK)}")
 
-print(f"{-1%4}")
+cards = [card("S", "Q"), card("D", "2"), card("H", "5"), card("C", "X")]
+print(f"{serializepr(cards)}")

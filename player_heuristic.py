@@ -4,6 +4,7 @@ from sqlalchemy import and_, or_
 
 from card import *
 from database import db_init, HEARTS_DB_URI
+from logger import logger
 from model import GameModel, HandModel, PassingModel, PlayerModel
 from player import Player
 
@@ -32,7 +33,9 @@ class HeuristicPlayer(Player):
         )
         if results:
             self.number_of_passing_hits += 1
-            print(f"pass: {results.passed}, dealt: {serializedb(cards_dealt, sort=True)}, direction: {direction}")
+            logger.info(
+                f"dealt: {serializepr(cards_dealt, sort=True)}, direction: {direction}, pass: {serializepr(deserializedb(results.passed))}"
+            )
             return deserializedb(results.passed)
         return random.sample(cards_dealt, 3)
 
@@ -66,12 +69,14 @@ class HeuristicPlayer(Player):
         if results:
             self.number_of_turns_hits += 1
             n = len(turns)
-            print(f"play: {results.turns[n:n+2]}, playing: {serializedb(cards_playing, sort=True)}, turns: {turns}")
+            logger.info(
+                f"playing: {serializepr(cards_playing, sort=True)}, turns: {turns}, play: {results.turns[n:n+2]}"
+            )
             return deserializedb(results.turns[n : n + 2])
         return random.choice(playable)
 
     def played_game(self, points_game, hands_played):
         if self.number_of_passing_hits:
-            print(f"passing: {self.number_of_passing_hits*100/self.number_of_passing:.2f}%")
+            logger.info(f"passing: {self.number_of_passing_hits*100/self.number_of_passing:.1f}%")
         if self.number_of_turns_hits:
-            print(f"hands: {self.number_of_turns_hits*100/self.number_of_turns:.2f}%")
+            logger.info(f"hands: {self.number_of_turns_hits*100/self.number_of_turns:.1f}%")
