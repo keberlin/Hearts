@@ -47,12 +47,6 @@ class HandModel(db.Model):
     __table_args__ = (Index("hand_idx", "playing", "turns", unique=True),)
 
     id = db.Column("id", Integer, Identity(), primary_key=True, nullable=False)
-    game = db.Column("game", ForeignKey(GameModel.id), nullable=False)
-    player = db.Column("player", ForeignKey(PlayerModel.id), nullable=False)
-    dealt = db.Column("dealt", String(2 * 13), nullable=False)
-    direction = db.Column("direction", Integer, nullable=False)
-    passed = db.Column("passed", String(2 * 3), nullable=False)
-    received = db.Column("received", String(2 * 3), nullable=False)
     playing = db.Column("playing", String(2 * 13), nullable=False)
     turns = db.Column("turns", String((2 + 2 * 4) * 13 + (13 - 1)), nullable=False)
     points = db.Column("points", Integer, nullable=False)

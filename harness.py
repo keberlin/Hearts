@@ -6,6 +6,8 @@ import logging
 import os
 import random
 
+from sqlalchemy.exc import IntegrityError
+
 from card import *
 from database import db_init, HEARTS_DB_URI
 from logger import logger
@@ -316,18 +318,15 @@ def play_game(game_id, players, player_ids):
 
         for i, player in enumerate(players):
             entry = HandModel(
-                game=game_id,
-                player=player_ids[i],
-                dealt=serializedb(cards_dealt[i], sort=True),
-                direction=direction,
-                passed=serializedb(cards_passed[i], sort=True),
-                received=serializedb(cards_received[i], sort=True),
                 playing=serializedb(cards_playing[i], sort=True),
                 turns=" ".join([f"{_turndb((i-x)%NUM_PLAYERS,y)}" for x, y, _ in turns_played]),
                 points=points_hand[i],
             )
             session.add(entry)
-        session.commit()
+            try:
+                session.commit()
+            except IntegrityError:
+                session.rollback()
 
         #
         # Keep track of played games
