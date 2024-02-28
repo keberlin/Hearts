@@ -1,4 +1,3 @@
-# from collections import zip
 import argparse
 from datetime import timedelta
 import logging
@@ -6,10 +5,8 @@ import logging
 from sqlalchemy import and_, or_
 
 from database import db_init, HEARTS_DB_URI
+from logger import logger
 from model import GameModel, HandModel, PassingModel, PlayerModel
-
-logger = logging.getLogger()
-logging.basicConfig(filename="/var/log/hearts/log", level=logging.DEBUG)
 
 session = db_init(HEARTS_DB_URI)
 

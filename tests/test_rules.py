@@ -42,7 +42,7 @@ def test_score(cards, score):
         (
             (CARD_4, CARD_6, CARD_8, CARD_X, CARD_Q),
             (CARD_3, CARD_4, CARD_5, CARD_6, CARD_7, CARD_8, CARD_9, CARD_X, CARD_J, CARD_Q),
-            9,
+            10,
         ),
         ((CARD_2, CARD_8, CARD_A), (CARD_2, CARD_4, CARD_6, CARD_8, CARD_X, CARD_Q, CARD_A), 8),
     ],

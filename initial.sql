@@ -6,4 +6,4 @@ CREATE TABLE passing (id BIGSERIAL PRIMARY KEY, dealt CHAR(26), direction INTEGE
 CREATE INDEX passing_idx ON passing (dealt,direction);
 
 CREATE TABLE hands (id BIGSERIAL PRIMARY KEY, game INTEGER, player INTEGER, dealt CHAR(26), direction INTEGER, passed CHAR(6), received CHAR(6), playing CHAR(26), turns CHAR(142), points INTEGER);
-CREATE INDEX hands_idx ON hands (playing);
+CREATE UNIQUE INDEX hands_idx ON hands (playing,turns);

@@ -23,3 +23,9 @@ def test_deserializedb():
     cards = "2SKH4CJD"
     result = deserializedb(cards)
     assert result == [card("S", "2"), card("H", "K"), card("C", "4"), card("D", "J")]
+
+
+def test_serializepr():
+    cards = [card("S", "Q"), card("D", "2"), card("H", "5"), card("C", "X")]
+    result = serializepr(cards)
+    assert result == "QS 2D 5H XC"

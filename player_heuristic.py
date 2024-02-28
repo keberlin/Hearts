@@ -1,4 +1,5 @@
 import random
+from statistics import mean
 
 from sqlalchemy import and_, or_
 
@@ -28,15 +29,29 @@ class HeuristicPlayer(Player):
         results = (
             session.query(PassingModel)
             .filter(PassingModel.dealt == serializedb(cards_dealt, sort=True), PassingModel.direction == direction)
-            .order_by(PassingModel.points)
-            .first()
+            .all()
         )
         if results:
             self.number_of_passing_hits += 1
-            logger.info(
-                f"dealt: {serializepr(cards_dealt, sort=True)}, direction: {direction}, pass: {serializepr(deserializedb(results.passed))}"
+            points = {}
+            for result in results:
+                if result.passed not in points:
+                    points[result.passed] = []
+                points[result.passed].append(result.points)
+            print(f"points: {points}")
+            scores = []
+            for k, v in points.items():
+                scores.append((k, mean(v)))
+            scores.sort(key=lambda x: x[1])
+            print(f"scores: {scores}")
+            passed = scores[0][0]
+            print(
+                f"dealt: {serializepr(cards_dealt, sort=True)}, direction: {direction}, pass: {serializepr(deserializedb(passed))}"
             )
-            return deserializedb(results.passed)
+            logger.info(
+                f"dealt: {serializepr(cards_dealt, sort=True)}, direction: {direction}, pass: {serializepr(deserializedb(passed))}"
+            )
+            return deserializedb(passed)
         return random.sample(cards_dealt, 3)
 
     def play_turn(
@@ -72,11 +87,11 @@ class HeuristicPlayer(Player):
             logger.info(
                 f"playing: {serializepr(cards_playing, sort=True)}, turns: {turns}, play: {results.turns[n:n+2]}"
             )
-            return deserializedb(results.turns[n : n + 2])
+            return deserialize(results.turns[n : n + 2])
         return random.choice(playable)
 
     def played_game(self, points_game, hands_played):
         if self.number_of_passing_hits:
             logger.info(f"passing: {self.number_of_passing_hits*100/self.number_of_passing:.1f}%")
         if self.number_of_turns_hits:
-            logger.info(f"hands: {self.number_of_turns_hits*100/self.number_of_turns:.1f}%")
+            logger.info(f"turns: {self.number_of_turns_hits*100/self.number_of_turns:.1f}%")
