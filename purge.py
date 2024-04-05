@@ -2,11 +2,11 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import and_, func, or_
 
-from database import db_init, HEARTS_DB_URI
+from database import db_init
 from logger import logger
 from model import GameModel, HandModel, PassingModel, PlayerModel
 
-session = db_init(HEARTS_DB_URI)
+session = db_init()
 
 now = datetime.utcnow()
 start = now - timedelta(hours=1)

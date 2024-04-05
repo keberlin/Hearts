@@ -4,11 +4,11 @@ import logging
 
 from sqlalchemy import and_, or_
 
-from database import db_init, HEARTS_DB_URI
+from database import db_init
 from logger import logger
 from model import GameModel, HandModel, PassingModel, PlayerModel
 
-session = db_init(HEARTS_DB_URI)
+session = db_init()
 
 parser = argparse.ArgumentParser(description="Statistics for Hearts card game.")
 parser.add_argument("-t", dest="top", type=int, default=20, help="Report top highest scoring players", required=False)

@@ -4,12 +4,12 @@ from statistics import mean
 from sqlalchemy import and_, or_
 
 from card import *
-from database import db_init, HEARTS_DB_URI
+from database import db_init
 from logger import logger
 from model import GameModel, HandModel, PassingModel, PlayerModel
 from player import Player
 
-session = db_init(HEARTS_DB_URI)
+session = db_init()
 
 
 def _turndb(pos: int, cards: list):
@@ -84,6 +84,7 @@ class HeuristicPlayer(Player):
         if results:
             self.number_of_turns_hits += 1
             n = len(turns)
+            print(f"playing: {serializepr(cards_playing, sort=True)}, turns: {turns}, play: {results.turns[n:n+2]}")
             logger.info(
                 f"playing: {serializepr(cards_playing, sort=True)}, turns: {turns}, play: {results.turns[n:n+2]}"
             )

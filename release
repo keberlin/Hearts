@@ -8,5 +8,7 @@ echo 'Copying sh files..'
 cp -u *.sh $RELEASE
 echo 'Copying Makefile..'
 cp -u Makefile $RELEASE
+echo 'Copying cron file..'
+cp -u *.cron $RELEASE
 echo 'Copying venv directory..'
 cp -ru venv $RELEASE

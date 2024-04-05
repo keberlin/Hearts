@@ -7,7 +7,7 @@ HEARTS_DB_URI = "postgresql://postgres:postgres@localhost:5432/hearts"
 db = SQLAlchemy()
 
 
-def db_init(uri):
+def db_init(uri=HEARTS_DB_URI):
     engine = create_engine(uri)
     Session = sessionmaker(bind=engine)
     session = Session()

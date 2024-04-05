@@ -9,7 +9,7 @@ import random
 from sqlalchemy.exc import IntegrityError
 
 from card import *
-from database import db_init, HEARTS_DB_URI
+from database import db_init
 from logger import logger
 from model import GameModel, HandModel, PassingModel, PlayerModel
 from player_ai import AIPlayer
@@ -17,7 +17,7 @@ from player_heuristic import HeuristicPlayer
 from player_random import RandomPlayer
 from utils import ranking
 
-session = db_init(HEARTS_DB_URI)
+session = db_init()
 
 
 # Get 4 players
